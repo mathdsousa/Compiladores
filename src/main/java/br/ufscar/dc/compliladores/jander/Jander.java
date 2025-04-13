@@ -7,6 +7,7 @@ package br.ufscar.dc.compliladores.jander;
 /**
  *
  * @author Matheus dos Santos
+ * @author Matheus Cassatti
  */
 public class Jander {
 
