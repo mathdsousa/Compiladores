@@ -6,6 +6,7 @@ package br.ufscar.dc.compliladores.jander;
 
 /**
  *
+<<<<<<< HEAD:src/main/java/br/ufscar/dc/compliladores/jander/Principal.java
  * @author Matheus Sousa
  * @author Matheus Cassatti
  * @author Guilherme dos Santos
