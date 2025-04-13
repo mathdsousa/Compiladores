@@ -6,9 +6,11 @@ package br.ufscar.dc.compliladores.jander;
 
 /**
  *
- * @author Matheus dos Santos
+ * @author Matheus Sousa
+ * @author Matheus Cassatti
+ * @author Guilherme dos Santos
  */
-public class Jander {
+public class Principal {
 
     public static void main(String[] args) {
         System.out.println("Hello World!");
