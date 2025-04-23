@@ -121,9 +121,11 @@ IDENT : [a-zA-Z_][a-zA-Z_0-9]*;
 
 WS : [ \t\r\n]+ -> skip;
 
+
+//classificação dos erros para identificação dos mesmos
 CADEIA_NAO_FECHADA: '"' ( ESC_SEQ | ~('\''|'\\'|'"'| '\n') )* '\n';
 
-COMENTARIO : '{' ( ~'\n' )*? '}' -> skip;
+COMENTARIO : '{' ( ~'\n' )*? '}' -> skip; // classificação para o comentario valer apenas na mesma linha
 
 COMENTARIO_NAO_FECHADO: '{' ( ~'}' )*? '\n';
 
