@@ -1,7 +1,7 @@
 **Alunos:**
 
 - Matheus Henrique Cassatti
-- Matheus Sous  
+- Matheus dos Santos Sousa
 - Guilherme dos Santos Wisniewski
 
 **Dependencias:** 
