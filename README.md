@@ -12,7 +12,7 @@
 
 **Compilação:**
 
-- No git já possuí o target com a build pronta no netBeans, para execução em outra IDE é necessário abrir o projeto do JAVA na IDE e realizar build do projeto, no qual irá criar uma pasta TARGET que dentro tera o executável jander-1.0-SNAPSHOT-jar-with-dependencies.jar
+- Para a execução é necessário buildar antes, para isso é preciso abrir o projeto do JAVA em alguma IDE e realizar build do projeto, no qual irá criar uma pasta TARGET que dentro tera o executável jander-1.0-SNAPSHOT-jar-with-dependencies.jar
 
 **Execução:**
 
