@@ -26,6 +26,7 @@ public class Principal {
   
         
         try{
+           //criação do arquivo de texto e organização para compilação
             CharStream cs = CharStreams.fromFileName(args[0]);
             Jander jander = new Jander(cs);
             
@@ -33,9 +34,12 @@ public class Principal {
             PrintWriter pw = new PrintWriter(arquivoSaida);
 
             Token t = null;
-
+            
+            //leitura dos arquivo de texto ate o TOKEN.EOF
             while((t = jander.nextToken()).getType() != Token.EOF){
                 
+                
+                // Verificação de erros antes de especificar o token
                 if(Jander.VOCABULARY.getDisplayName(t.getType()).equals("COMENTARIO_NAO_FECHADO"))
                 {
                     pw.println("Linha " + t.getLine() + ":" + " comentario nao fechado" );
@@ -51,12 +55,12 @@ public class Principal {
                     pw.println("Linha " + t.getLine() + ": " + t.getText() + " - simbolo nao identificado" );
                     break;
                 }
-                else{
+                else{ // após a verificação de erro, é classificado o TOKEN
                     if (Jander.VOCABULARY.getDisplayName(t.getType()) == "OP_ARIT" || Jander.VOCABULARY.getDisplayName(t.getType()) == "OP_REL" || Jander.VOCABULARY.getDisplayName(t.getType()) == "OP_LOGICO") {
-                        pw.println("<" + "'" + t.getText() + "'" + "," + "'" + t.getText() + "'" + ">");
+                        pw.println("<" + "'" + t.getText() + "'" + "," + "'" + t.getText() + "'" + ">"); // mudança para a saída do T1 no qual os operadores  são considerados palavra-chave na saída
                     }
                     else{
-                        pw.println("<" + "'" + t.getText() + "'" + "," + Jander.VOCABULARY.getDisplayName(t.getType()) + ">");
+                        pw.println("<" + "'" + t.getText() + "'" + "," + Jander.VOCABULARY.getDisplayName(t.getType()) + ">"); // classificação dos TOKENS
                     }
                 }
             }
