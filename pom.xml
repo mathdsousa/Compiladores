@@ -49,6 +49,7 @@
             <groupId>org.antlr</groupId>
             <artifactId>antlr4</artifactId>
             <version>4.7.2</version>
+            <classifier>complete</classifier>
         </dependency>
     </dependencies>
     <properties>
