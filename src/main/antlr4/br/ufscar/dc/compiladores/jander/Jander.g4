@@ -2,334 +2,132 @@ grammar Jander;
 
 // Palavras-chave
 ALGORITMO : 'algoritmo';
-
-FIM_ALGORITMO : 'fim_algoritmo';
-
-SE: 'se';
-
-ENTAO: 'entao';
-
-FIM_SE: 'fim_se';
-
-FACA : 'faca';
-
-ATE : 'ate';
-
-PARA : 'para';
-
-FIM_PARA : 'fim_para';
-
-ENQUANTO: 'enquanto';
-
-FIM_ENQUANTO: 'fim_enquanto';
-
 DECLARE : 'declare';
-
-REGISTRO: 'registro';
-
-FIM_REGISTRO: 'fim_registro';
-
-PONTO: '.';
-
-TIPO : 'tipo';
-
-VAR: 'var';
-
-PROCEDIMENTO: 'procedimento';
-    
-FIM_PROCEDIMENTO: 'fim_procedimento';
-    
-FUNCAO : 'funcao';
-
-FIM_FUNCAO: 'fim_funcao';
-
-RETORNE : 'retorne';
-
 LITERAL : 'literal';
-
-CONSTANTE : 'constante';
-
 INTEIRO : 'inteiro';
-
 REAL : 'real';
-
 LOGICO : 'logico';
-
 LEIA : 'leia';
-
 ESCREVA : 'escreva';
-
+SE : 'se';
+FIM_SE : 'fim_se';
+ENTAO: 'entao';
 CASO : 'caso';
-
 SEJA : 'seja';
-
 SENAO : 'senao';
-
-ENDERECO: '&';
-
-PONTEIRO : '^';
-
 FIM_CASO : 'fim_caso';
-
-// Funções matemáticas (reservados na linguagem LA)
-
-COMPRLITERAL : 'comprLiteral';
-
-POSLITERAL : 'posLiteral';
-
-VALLITERAL : 'valLiteral';
+PARA : 'para';
+ATE : 'ate';
+FACA : 'faca';
+FIM_PARA : 'fim_para';
+ENQUANTO : 'enquanto';
+FIM_ENQUANTO : 'fim_enquanto';
+REGISTRO : 'registro';
+FIM_REGISTRO : 'fim_registro';
+TIPO : 'tipo';
+PROCEDIMENTO : 'procedimento';
+FIM_PROCEDIMENTO : 'fim_procedimento';
+VAR : 'var';
+FUNCAO : 'funcao';
+RETORNE : 'retorne';
+FIM_FUNCAO : 'fim_funcao';
+CONSTANTE : 'constante';
+VERDADEIRO : 'verdadeiro';
+FALSO : 'falso';
+FIM_ALGORITMO : 'fim_algoritmo';
 
 // Operadores e símbolos
 OP_ARIT : '+' | '-' | '*' | '/' | '%';
-
 OP_REL : '>' | '>=' | '<' | '<=' | '<>' | '=';
-
 OP_LOGICO : 'e' | 'ou' | 'nao';
-
-VERDADEIRO: 'verdadeiro';
-
-FALSO: 'falso';
-
 ATRIB : '<-';
-
 DELIM : ':';
-
 VIRG : ',';
-
 PONTO_PONTO : '..';
-
+PONTO: '.';
 ABREPAR : '(';
-
 FECHAPAR : ')';
-
 ABRE_COL : '[';
-
 FECHA_COL : ']';
+ENDERECO: '&';
+PONTEIRO : '^';
 
 // Literais e identificadores
-CADEIA 	: '"' ( ESC_SEQ | ~('\''|'\\'|'"'|'\n') )* '"';
-fragment
-ESC_SEQ	: '\\\'';
-
+CADEIA : '"' ( ESC_SEQ | ~('\n'|'\''|'\\'|'"') )* '"';
+fragment ESC_SEQ : '\\\'';
 NUM_INT : [0-9]+;
-
-NUM_REAL : [0-9]+ '.' [0-9]+;
-
+NUM_REAL : [0-9]+ ('.' [0-9]+)?;
 IDENT : [a-zA-Z_][a-zA-Z_0-9]*;
 
 // Comentários e espaços em branco
-
+COMENTARIO : '{' ~('}'|'\n')* '}' -> skip;
 WS : [ \t\r\n]+ -> skip;
 
-
-//classificação dos erros para identificação dos mesmos
-CADEIA_NAO_FECHADA: '"' ( ESC_SEQ | ~('\''|'\\'|'"'| '\n') )* '\n';
-
-COMENTARIO : '{' ( ~'\n' )*? '}' -> skip; // classificação para o comentario valer apenas na mesma linha
-
-COMENTARIO_NAO_FECHADO: '{' ( ~'}' )*? '\n';
-
+// Classificação de erros
+CADEIA_NAO_FECHADA: '"' ( ESC_SEQ | ~('\n'|'\''|'\\'|'"') )* '\n';
+COMENTARIO_NAO_FECHADO: '{' ~('}'|'\n')* '\n';
 ERRO: .;
 
-// Regras 
-programa
-    : declaracoes ALGORITMO corpo FIM_ALGORITMO EOF
-    ;
+// Regras
+programa : declaracoes ALGORITMO corpo FIM_ALGORITMO EOF;
+declaracoes : decl_local_global*;
+decl_local_global : declaracao_local | declaracao_global;
+declaracao_local : DECLARE variavel
+                 | CONSTANTE IDENT DELIM tipo_basico '=' valor_constante
+                 | TIPO IDENT DELIM tipo;
+variavel : identificador (VIRG identificador)* DELIM tipo;
+identificador : IDENT (PONTO IDENT)* dimensao;
+dimensao : (ABRE_COL exp_aritmetica FECHA_COL)*;
+tipo : registro | tipo_estendido;
+tipo_basico : LITERAL | INTEIRO | REAL | LOGICO;
+tipo_basico_ident : tipo_basico | IDENT;
+tipo_estendido : PONTEIRO? tipo_basico_ident;
+valor_constante : CADEIA | NUM_INT | NUM_REAL | VERDADEIRO | FALSO;
+registro : REGISTRO variavel* FIM_REGISTRO;
+declaracao_global : PROCEDIMENTO IDENT ABREPAR parametros? FECHAPAR declaracao_local* cmd* FIM_PROCEDIMENTO
+                  | FUNCAO IDENT ABREPAR parametros? FECHAPAR DELIM tipo_estendido declaracao_local* cmd* FIM_FUNCAO;
+parametro : VAR? identificador (VIRG identificador)* DELIM tipo_estendido;
+parametros : parametro (VIRG parametro)*;
+corpo : declaracao_local* cmd*;
+cmd : cmdLeia | cmdEscreva | cmdSe | cmdCaso | cmdPara | cmdEnquanto | cmdFaca | cmdAtribuicao | cmdChamada | cmdRetorne;
+cmdLeia : LEIA ABREPAR PONTEIRO? identificador (VIRG PONTEIRO? identificador)* FECHAPAR;
+cmdEscreva : ESCREVA ABREPAR expressao (VIRG expressao)* FECHAPAR;
+cmdSe : SE expressao ENTAO cmd* (SENAO cmd*)? FIM_SE;
+cmdCaso : CASO exp_aritmetica SEJA selecao (SENAO cmd*)? FIM_CASO;
+cmdPara : PARA IDENT ATRIB exp_aritmetica ATE exp_aritmetica FACA cmd* FIM_PARA;
+cmdEnquanto : ENQUANTO expressao FACA cmd* FIM_ENQUANTO;
+cmdFaca : FACA cmd* ATE expressao;
+cmdAtribuicao : PONTEIRO? identificador ATRIB expressao;
+cmdChamada : IDENT ABREPAR expressao (VIRG expressao)* FECHAPAR;
+cmdRetorne : RETORNE expressao;
 
-declaracoes
-    : (declaracao_global | declaracao_local)*
-    ;
+selecao: item_selecao*;
+item_selecao : constantes DELIM cmd*;
+constantes : numero_intervalo (VIRG numero_intervalo)*;
+numero_intervalo : op_unario? NUM_INT (PONTO_PONTO op_unario? NUM_INT)?;
+op_unario : '-';
 
-declaracao_global
-    : PROCEDIMENTO IDENT ABREPAR parametros? FECHAPAR declaracao_local* comando* FIM_PROCEDIMENTO
-    | FUNCAO IDENT ABREPAR parametros? FECHAPAR DELIM tipo_ponteiro declaracao_local* comando* FIM_FUNCAO
-    ;
+exp_aritmetica : termo (op1 termo)*;
+termo : fator (op2 fator)*;
+fator : parcela (op3 parcela)*;
+op1 : '+' | '-';
+op2 : '*' | '/';
+op3 : '%';
 
-declaracao_local
-    : DECLARE variavel
-    | CONSTANTE IDENT DELIM tipo_basico '=' valor_constante
-    | TIPO IDENT DELIM tipo
-    ;
+parcela : op_unario? parcela_unario | parcela_nao_unario;
+parcela_unario : PONTEIRO? identificador
+               | IDENT ABREPAR expressao (VIRG expressao)* FECHAPAR
+               | NUM_INT
+               | NUM_REAL
+               | ABREPAR expressao FECHAPAR;
+parcela_nao_unario : ENDERECO identificador | CADEIA;
 
-variavel
-    : identificador (VIRG identificador)* DELIM tipo
-    ;
+exp_relacional : exp_aritmetica (op_relacional exp_aritmetica)?;
+op_relacional : '=' | '<>' | '>=' | '<=' | '>' | '<';
 
-identificador
-    : IDENT (PONTO IDENT)* tamanho
-    ;
-
-tamanho
-    : (ABRE_COL expressao_aritmetica FECHA_COL)*
-    ;
-
-valor_constante
-    : CADEIA | NUM_INT | NUM_REAL | VERDADEIRO | FALSO
-    ;
-
-tipo
-    : tipo_registro | tipo_ponteiro
-;
-
-tipo_basico
-    : LITERAL
-    | INTEIRO
-    | REAL
-    | LOGICO
-    ;
-
-tipo_ponteiro
-    : PONTEIRO? (tipo_basico | IDENT)?
-    ;
-
-tipo_registro
-    : REGISTRO variavel* FIM_REGISTRO
-    ;
-
-parametro
-    : VAR? identificador (VIRG identificador)* DELIM tipo_ponteiro;
-
-parametros
-    : parametro (VIRG parametro)*
-    ;
-
-corpo
-    : declaracao_local* comando*
-    ;
-
-comando_leia
-    : LEIA ABREPAR PONTEIRO? identificador (VIRG PONTEIRO? identificador)* FECHAPAR
-    ;
-
-comando_escreva
-    : ESCREVA ABREPAR expressao (VIRG expressao)* FECHAPAR
-    ;
-
-comando_se
-    : SE expressao ENTAO comando* (SENAO comando*)? FIM_SE
-    ;
-
-comando_caso
-    : CASO expressao_aritmetica SEJA selecao (SENAO comando*)? FIM_CASO
-    ;
-
-comando_para
-    : PARA IDENT ATRIB expressao_aritmetica ATE expressao_aritmetica FACA comando* FIM_PARA
-    ;
-
-comando_enquanto
-    : ENQUANTO expressao FACA comando* FIM_ENQUANTO
-    ;
-
-comando_faca
-    : FACA comando ATE expressao
-    ;
-
-comando_atribuicao
-    : PONTEIRO? identificador ATRIB expressao
-    ;
-
-comando_chamada
-    : IDENT ABREPAR expressao (VIRG expressao)* FECHAPAR
-    ; 
-
-comando_retorno
-    : RETORNE expressao
-    ;
-
-comando
-    : comando_leia
-    | comando_escreva
-    | comando_se
-    | comando_caso
-    | comando_para
-    | comando_enquanto
-    | comando_faca
-    | comando_atribuicao
-    | comando_chamada 
-    | comando_retorno
-    ;
-
-selecao
-    : item_selecao*
-    ;
-
-item_selecao
-    : constantes DELIM comando*
-    ;
-
-constantes
-    : numero_intervalo (VIRG numero_intervalo)*
-    ;
-
-numero_intervalo
-    : '-'? NUM_INT (PONTO_PONTO '-'? NUM_INT)?
-    ;
-
-expressao_aritmetica
-    : termo (operador_1 termo)*
-    ;
-
-termo
-    : fator (operador_2 fator)*
-;
-
-fator
-    : parcela (operador_3 parcela)*
-    ;
-
-operador_1
-    : '+' | '-';
-
-operador_2
-    : '*' | '/';
-
-operador_3
-    : '%';
-
-parcela
-    : '-'? parcela_unaria | parcela_nao_unaria
-    ;
- 
-parcela_unaria
-    : '^'? identificador
-    | IDENT ABREPAR expressao (VIRG expressao)* FECHAPAR
-    | NUM_INT
-    | NUM_REAL
-    | ABREPAR expressao FECHAPAR
-    ;
-
-parcela_nao_unaria
-    :'&' identificador | CADEIA;
-
-
-expressao
-    : termo_logico (operador_logico_1 termo_logico)*
-    ;
-
-expressao_relacional
-    : expressao_aritmetica (OP_REL expressao_aritmetica)?
-    ;
-
-termo_logico
-    : fator_logico (operador_logico_2 fator_logico)*
-    ;
-
-fator_logico 
-    : 'nao'? parcela_logica
-    ;
-
-parcela_logica 
-    : ('verdadeiro' | 'falso') | expressao_relacional
-    ;
-
-operador_logico_1 
-    : 'ou'
-    ;
-
-operador_logico_2 
-    : 'e'
-;  
-
-
-
+expressao : termo_logico (op_logico_1 termo_logico)*;
+termo_logico : fator_logico (op_logico_2 fator_logico)*;
+fator_logico : 'nao'? parcela_logica;
+parcela_logica : VERDADEIRO | FALSO | exp_relacional;
+op_logico_1 : 'ou';
+op_logico_2 : 'e';
