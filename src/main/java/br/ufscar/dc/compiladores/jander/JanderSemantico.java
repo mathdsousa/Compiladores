@@ -3,13 +3,13 @@ package br.ufscar.dc.compiladores.jander;
 public class JanderSemantico extends JanderBaseVisitor<Void> {
     TabelaDeSimbolos tabela;
 
-    @Override
+    @Override//inicialização
     public Void visitPrograma(JanderParser.ProgramaContext ctx) {
         tabela = new TabelaDeSimbolos();
         return super.visitPrograma(ctx);
     }
 
-    @Override
+    @Override //Chamada das declarações
     public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
         if (ctx.variavel() != null) {
             visitVariavel(ctx.variavel());
@@ -33,7 +33,7 @@ public class JanderSemantico extends JanderBaseVisitor<Void> {
         return null;
     }
 
-    @Override
+    @Override //Chamada das variaveis
     public Void visitVariavel(JanderParser.VariavelContext ctx) {
         // Verifica o tipo primeiro
         TabelaDeSimbolos.TipoJander tipoVar = JanderSemanticoUtils.verificarTipo(tabela, ctx.tipo());
@@ -56,6 +56,8 @@ public class JanderSemantico extends JanderBaseVisitor<Void> {
         return super.visitVariavel(ctx);
     }
 
+    
+    //chamadas do cmd
     @Override
     public Void visitCmdAtribuicao(JanderParser.CmdAtribuicaoContext ctx) {
         JanderSemanticoUtils.verificarTipo(tabela, ctx);
@@ -83,13 +85,16 @@ public class JanderSemantico extends JanderBaseVisitor<Void> {
         }
         return super.visitCmdEscreva(ctx);
     }
-
+    
+    
+    //chamada para a expressão
     @Override
     public Void visitExpressao(JanderParser.ExpressaoContext ctx) {
         JanderSemanticoUtils.verificarTipo(tabela, ctx);
         return super.visitExpressao(ctx);
     }
     
+    //chamada para o identificador
     @Override
     public Void visitIdentificador(JanderParser.IdentificadorContext ctx) {
         String nome = ctx.getText();

@@ -7,8 +7,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class JanderSemanticoUtils {
-    public static List<String> errosSemanticos = new ArrayList<>();
-    private static Set<String> variaveisComErro = new HashSet<>();
+    public static List<String> errosSemanticos = new ArrayList<>(); //lista de erros para o print
+    private static Set<String> variaveisComErro = new HashSet<>();  //lista de nome de variaveis para evitar repetição de erro na saida
     
     public static void adicionarErroSemantico(Token t, String mensagem) {
         int linha = t.getLine();
@@ -19,10 +19,12 @@ public class JanderSemanticoUtils {
         errosSemanticos.clear();
         variaveisComErro.clear();
     }
-
+    
+    //função para verificar a compatibilidade dos tipos
     public static boolean compatibilidade(TabelaDeSimbolos tabela, 
                                       TabelaDeSimbolos.TipoJander tipo1, 
                                       TabelaDeSimbolos.TipoJander tipo2) {
+        //Tipos Iguais são compativeis
         if (tipo1 == tipo2) {
             return true;
         }
@@ -33,27 +35,22 @@ public class JanderSemanticoUtils {
             return true;
         }
 
-        // LITERAL com qualquer outro tipo é incompatível
-        // LOGICO só é compatível com LOGICO (ou REAL, se você quiser forçar isso, mas não parece apropriado)
-
         return false;
     }
 
     
     // Função para adicionar o erro semântico e retornar um booleano
     public static boolean adicionarErroSeNecessario(String nome) {
-        // Verifica se a variável já foi registrada com erro
         if (!variaveisComErro.contains(nome)) {    
-            // Marca a variável como com erro
             variaveisComErro.add(nome);
             return true; // Erro foi adicionado
         }
-        // Caso a variável já tenha erro, não adiciona
         return false; // Erro não foi adicionado
     }
     
     // Verificação de tipos para cada construção da gramática
 
+    //função para retornar o tipo do ctx
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                           JanderParser.Tipo_basicoContext ctx) {
         if (ctx == null) return TabelaDeSimbolos.TipoJander.INVALIDO;
@@ -66,18 +63,19 @@ public class JanderSemanticoUtils {
             default: return TabelaDeSimbolos.TipoJander.INVALIDO;
         }
     }
-
+    
+    //não foi utilizado ponteiros nesses casos testes, não houve a implementação
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                           JanderParser.Tipo_estendidoContext ctx) {
         if (ctx == null) return TabelaDeSimbolos.TipoJander.INVALIDO;
         
         TabelaDeSimbolos.TipoJander tipo = verificarTipo(tabela, ctx.tipo_basico_ident());
         if (ctx.PONTEIRO() != null) {
-            // Lógica para ponteiros (se necessário)
         }
         return tipo;
     }
-
+    
+    //verificaçao do tipo
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                   JanderParser.Tipo_basico_identContext ctx) {
     if (ctx.tipo_basico() != null) {
@@ -94,12 +92,11 @@ public class JanderSemanticoUtils {
     }
     return TabelaDeSimbolos.TipoJander.INVALIDO;
     }
-
+    
+    //verificação da parcela unitariaa
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, JanderParser.Parcela_unarioContext ctx) {
         if (ctx.identificador() != null) {
             String nome = ctx.identificador().getText();
-
-            // Verifica se a variável existe na tabela de símbolos
             if (!tabela.existe(nome)) {
                 // Adiciona erro apenas se ainda não foi registrado para esta variável
                 if (adicionarErroSeNecessario(nome)) {
@@ -107,16 +104,17 @@ public class JanderSemanticoUtils {
                 }
                 return TabelaDeSimbolos.TipoJander.INVALIDO;
             }
-
             // Se a variável existe, retorna o tipo dela
             return tabela.verificar(nome);
         }
+        //retornos das parcelas unitarias fixas
         else if (ctx.NUM_INT() != null) {
             return TabelaDeSimbolos.TipoJander.INTEIRO;
         }
         else if (ctx.NUM_REAL() != null) {
             return TabelaDeSimbolos.TipoJander.REAL;
         }
+        //chama a verificação de expressão
         else if (ctx.expressao() != null) {
             TabelaDeSimbolos.TipoJander tipo = null;
             for (var exp : ctx.expressao()) {
@@ -134,7 +132,7 @@ public class JanderSemanticoUtils {
         return TabelaDeSimbolos.TipoJander.INVALIDO;
     }
 
-
+    //verificação para a parcela nao unitario
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                           JanderParser.Parcela_nao_unarioContext ctx) {
         if (ctx.identificador() != null) {
@@ -151,7 +149,8 @@ public class JanderSemanticoUtils {
         }
         return TabelaDeSimbolos.TipoJander.INVALIDO;
     }
-
+    
+    //função para decidir o tipo de parcela
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                           JanderParser.ParcelaContext ctx) {
         if (ctx.parcela_unario() != null) {
@@ -161,11 +160,12 @@ public class JanderSemanticoUtils {
         }
         return TabelaDeSimbolos.TipoJander.INVALIDO;
     }
-
+    
+    //verificação da expressão aritmetica
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                   JanderParser.Exp_aritmeticaContext ctx) {
         TabelaDeSimbolos.TipoJander tipo = null;
-
+        //faz a chamada para cada termo
         for (var termo : ctx.termo()) {
             TabelaDeSimbolos.TipoJander aux = verificarTipo(tabela, termo);
             if (tipo == null) {
@@ -175,15 +175,16 @@ public class JanderSemanticoUtils {
             }
         }
 
-        return tipo != null ? tipo : TabelaDeSimbolos.TipoJander.INVALIDO;
+        return tipo != null ? tipo : TabelaDeSimbolos.TipoJander.INVALIDO;//retorna o tipo, se for null retorna invalido
     }
 
 
 
-
+    //verificação do contexto
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                      JanderParser.TermoContext ctx) {
         TabelaDeSimbolos.TipoJander tipo = null;
+        //faz a chamada de cada fator
         for (var fator : ctx.fator()) {
             TabelaDeSimbolos.TipoJander aux = verificarTipo(tabela, fator);
             if (tipo == null) {
@@ -195,13 +196,14 @@ public class JanderSemanticoUtils {
                 }
             }
         
-        return tipo != null ? tipo : TabelaDeSimbolos.TipoJander.INVALIDO;
+        return tipo != null ? tipo : TabelaDeSimbolos.TipoJander.INVALIDO;//retorna o tipo, se for null retorna invalido
     }
-
+    
+    //verificação do fator
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                          JanderParser.FatorContext ctx) {
         TabelaDeSimbolos.TipoJander tipo = null;
-
+        //faz a chamada das parcelas
         for (var parcela : ctx.parcela()) {
             TabelaDeSimbolos.TipoJander aux = verificarTipo(tabela, parcela);
 
@@ -221,7 +223,7 @@ public class JanderSemanticoUtils {
         return tipo;
     }
 
-
+    //verificação das expressões relacionais
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                       JanderParser.Exp_relacionalContext ctx) {
         TabelaDeSimbolos.TipoJander tipo = verificarTipo(tabela, ctx.exp_aritmetica(0));
@@ -238,7 +240,8 @@ public class JanderSemanticoUtils {
         // Se não há operador relacional, retorna o tipo da expressão aritmética
         return tipo;
     }
-
+    
+    //verificação da parcela Logica
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                           JanderParser.Parcela_logicaContext ctx) {
         if (ctx.exp_relacional() != null) {
@@ -249,6 +252,7 @@ public class JanderSemanticoUtils {
         return TabelaDeSimbolos.TipoJander.INVALIDO;
     }
 
+    //verificação do fator logico
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                           JanderParser.Fator_logicoContext ctx) {
         if (ctx.parcela_logica() != null) {
@@ -256,7 +260,8 @@ public class JanderSemanticoUtils {
         }
         return TabelaDeSimbolos.TipoJander.INVALIDO;
     }
-
+    
+    //verificação do termo logico
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                           JanderParser.Termo_logicoContext ctx) {
         TabelaDeSimbolos.TipoJander tipo = null;
@@ -270,7 +275,8 @@ public class JanderSemanticoUtils {
         }
         return tipo;
     }
-
+    
+    //função para selecionar o tipo de expressão
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                           JanderParser.ExpressaoContext ctx) {
         TabelaDeSimbolos.TipoJander tipo = null;
@@ -284,7 +290,8 @@ public class JanderSemanticoUtils {
         }
         return tipo;
     }
-
+    
+    //função utilizada pelo visitCmdAtribuição inves de usado no .java
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, JanderParser.CmdAtribuicaoContext ctx) {
         String nomeVar = ctx.identificador().getText();
 
@@ -314,7 +321,7 @@ public class JanderSemanticoUtils {
     }
 
 
-
+    //função utilizada pelo visitCmdAtribuição inves de usado no .java
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                           JanderParser.CmdChamadaContext ctx) {
         String nomeFunc = ctx.IDENT().getText();
@@ -327,6 +334,7 @@ public class JanderSemanticoUtils {
         return tabela.verificar(nomeFunc);
     }
 
+    //função utilizada pelo visitCmdAtribuição inves de usado no .java
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                           JanderParser.CmdRetorneContext ctx) {
         TabelaDeSimbolos.TipoJander tipoExpr = verificarTipo(tabela, ctx.expressao());
@@ -336,6 +344,7 @@ public class JanderSemanticoUtils {
         return tipoExpr;
     }
     
+    //função para seleção dos tipos
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                       JanderParser.TipoContext ctx) {
         if (ctx == null) {
