@@ -89,19 +89,19 @@ public class JanderSemanticoUtils {
             return TabelaDeSimbolos.TipoJander.REAL;
         } else if (ctx.expressao() != null) {
             TabelaDeSimbolos.TipoJander tipo = null;
-        for (var exp : ctx.expressao()) {
-            TabelaDeSimbolos.TipoJander aux = verificarTipo(tabela, exp);
-            if (tipo == null) {
-                tipo = aux;
-            } else if (aux != TabelaDeSimbolos.TipoJander.INVALIDO && 
-                      compatibilidade(tabela, tipo, aux)) {
-                adicionarErroSemantico(ctx.getStart(), 
-                    "Expressão incompatível dentro de parcela unária");
-                tipo = TabelaDeSimbolos.TipoJander.INVALIDO;
+            for (var exp : ctx.expressao()) {
+                TabelaDeSimbolos.TipoJander aux = verificarTipo(tabela, exp);
+                if (tipo == null) {
+                    tipo = aux;
+                } else if (aux != TabelaDeSimbolos.TipoJander.INVALIDO && 
+                          compatibilidade(tabela, tipo, aux)) {
+                    adicionarErroSemantico(ctx.getStart(), 
+                        "Expressão incompatível dentro de parcela unária");
+                    tipo = TabelaDeSimbolos.TipoJander.INVALIDO;
+                }
             }
-        }
-        return TabelaDeSimbolos.TipoJander.INVALIDO;
-        }
+            return TabelaDeSimbolos.TipoJander.INVALIDO;
+            }
         return TabelaDeSimbolos.TipoJander.INVALIDO;
     }
 
