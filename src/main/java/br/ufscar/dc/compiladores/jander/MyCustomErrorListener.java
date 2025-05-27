@@ -1,7 +1,11 @@
 package br.ufscar.dc.compiladores.jander;
 
 import java.io.PrintWriter;
-import org.antlr.v4.runtime.*;
+
+import org.antlr.v4.runtime.BaseErrorListener;
+import org.antlr.v4.runtime.RecognitionException;
+import org.antlr.v4.runtime.Recognizer;
+import org.antlr.v4.runtime.Token;
 
 public class MyCustomErrorListener extends BaseErrorListener{
     PrintWriter pw;

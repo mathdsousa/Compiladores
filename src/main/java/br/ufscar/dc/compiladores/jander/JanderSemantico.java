@@ -3,19 +3,17 @@ package br.ufscar.dc.compiladores.jander;
 public class JanderSemantico extends JanderBaseVisitor<Void> {
     TabelaDeSimbolos tabela;
 
-    @Override//inicialização
+    @Override
     public Void visitPrograma(JanderParser.ProgramaContext ctx) {
         tabela = new TabelaDeSimbolos();
         return super.visitPrograma(ctx);
     }
 
-    @Override //Chamada das declarações
+    @Override
     public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
         if (ctx.variavel() != null) {
             visitVariavel(ctx.variavel());
-            return null;
         } else if (ctx.IDENT() != null) {
-            // constante ou tipo
             String nomeVar = ctx.IDENT().getText();
             TabelaDeSimbolos.TipoJander tipoVar = JanderSemanticoUtils.verificarTipo(tabela, ctx.tipo_basico());
 
@@ -29,13 +27,22 @@ public class JanderSemantico extends JanderBaseVisitor<Void> {
                         "tipo " + ctx.tipo_basico().getText() + " nao declarado");
                 }
             }
+        } else if (ctx.tipo() != null) {
+            // Declaração de tipo
+            String nomeTipo = ctx.IDENT().getText();
+            if (tabela.existe(nomeTipo)) {
+                JanderSemanticoUtils.adicionarErroSemantico(ctx.IDENT().getSymbol(),
+                    "identificador " + nomeTipo + " ja declarado anteriormente");
+            } else {
+                TabelaDeSimbolos.TipoJander tipo = JanderSemanticoUtils.verificarTipo(tabela, ctx.tipo());
+                tabela.adicionar(nomeTipo, tipo);
+            }
         }
         return null;
     }
 
-    @Override //Chamada das variaveis
+    @Override
     public Void visitVariavel(JanderParser.VariavelContext ctx) {
-        // Verifica o tipo primeiro
         TabelaDeSimbolos.TipoJander tipoVar = JanderSemanticoUtils.verificarTipo(tabela, ctx.tipo());
 
         for (var ident : ctx.identificador()) {
@@ -47,21 +54,83 @@ public class JanderSemantico extends JanderBaseVisitor<Void> {
                 if (tipoVar != TabelaDeSimbolos.TipoJander.INVALIDO) {
                     tabela.adicionar(nomeVar, tipoVar);
                 } else {
-                    // Adiciona o nome da variável à lista de variáveis com erro
                     JanderSemanticoUtils.adicionarErroSeNecessario(nomeVar);
                 }
             }
         }
-
-        return super.visitVariavel(ctx);
+        return null;
     }
 
-    
-    //chamadas do cmd
+    @Override
+    public Void visitDeclaracao_global(JanderParser.Declaracao_globalContext ctx) {
+        String nome = ctx.IDENT().getText();
+
+        if (tabela.existe(nome)) {
+            JanderSemanticoUtils.adicionarErroSemantico(ctx.IDENT().getSymbol(),
+                "identificador " + nome + " ja declarado anteriormente");
+            return null;
+        }
+
+        if (ctx.PROCEDIMENTO() != null) {
+            tabela.adicionar(nome, TabelaDeSimbolos.TipoJander.PROCEDIMENTO);
+            tabela.novoEscopo(false);
+
+            if (ctx.parametros() != null) {
+                visitParametros(ctx.parametros());
+            }
+
+            // Corrigido: Visitar declaracoes_locais e comandos separadamente
+            for (JanderParser.Declaracao_localContext decl : ctx.declaracao_local()) {
+                visitDeclaracao_local(decl);
+            }
+            for (JanderParser.CmdContext cmd : ctx.cmd()) {
+                visitCmd(cmd);
+            }
+
+            tabela.abandonarEscopo();
+        } else if (ctx.FUNCAO() != null) {
+            TabelaDeSimbolos.TipoJander tipoRetorno = JanderSemanticoUtils.verificarTipo(tabela, ctx.tipo_estendido());
+            tabela.adicionar(nome, tipoRetorno);
+            tabela.novoEscopo(true);
+            tabela.setTipoRetornoFuncaoAtual(tipoRetorno);
+
+            if (ctx.parametros() != null) {
+                visitParametros(ctx.parametros());
+            }
+
+            // Corrigido: Visitar declaracoes_locais e comandos separadamente
+            for (JanderParser.Declaracao_localContext decl : ctx.declaracao_local()) {
+                visitDeclaracao_local(decl);
+            }
+            for (JanderParser.CmdContext cmd : ctx.cmd()) {
+                visitCmd(cmd);
+            }
+
+            tabela.abandonarEscopo();
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitParametro(JanderParser.ParametroContext ctx) {
+        TabelaDeSimbolos.TipoJander tipoParam = JanderSemanticoUtils.verificarTipo(tabela, ctx.tipo_estendido());
+        
+        for (var ident : ctx.identificador()) {
+            String nomeParam = ident.getText();
+            if (tabela.existe(nomeParam)) {
+                JanderSemanticoUtils.adicionarErroSemantico(ident.start,
+                    "identificador " + nomeParam + " ja declarado anteriormente");
+            } else {
+                tabela.adicionar(nomeParam, tipoParam);
+            }
+        }
+        return null;
+    }
+
     @Override
     public Void visitCmdAtribuicao(JanderParser.CmdAtribuicaoContext ctx) {
         JanderSemanticoUtils.verificarTipo(tabela, ctx);
-        return null; // NÃO visita os filhos
+        return null;
     }
 
     @Override
@@ -69,13 +138,13 @@ public class JanderSemantico extends JanderBaseVisitor<Void> {
         for (var ident : ctx.identificador()) {
             String nomeVar = ident.getText();
             if (!tabela.existe(nomeVar)) {
-                if(JanderSemanticoUtils.adicionarErroSeNecessario(nomeVar)){    
+                if(JanderSemanticoUtils.adicionarErroSeNecessario(nomeVar)) {    
                     JanderSemanticoUtils.adicionarErroSemantico(ident.start,
                         "identificador " + nomeVar + " nao declarado");
                 }
             }
         }
-        return super.visitCmdLeia(ctx);
+        return null;
     }
     
     @Override
@@ -83,18 +152,21 @@ public class JanderSemantico extends JanderBaseVisitor<Void> {
         for (var expr : ctx.expressao()) {
             JanderSemanticoUtils.verificarTipo(tabela, expr);
         }
-        return super.visitCmdEscreva(ctx);
+        return null;
     }
-    
-    
-    //chamada para a expressão
+
     @Override
-    public Void visitExpressao(JanderParser.ExpressaoContext ctx) {
+    public Void visitCmdChamada(JanderParser.CmdChamadaContext ctx) {
         JanderSemanticoUtils.verificarTipo(tabela, ctx);
-        return super.visitExpressao(ctx);
+        return null;
     }
-    
-    //chamada para o identificador
+
+    @Override
+    public Void visitCmdRetorne(JanderParser.CmdRetorneContext ctx) {
+        JanderSemanticoUtils.verificarTipo(tabela, ctx);
+        return null;
+    }
+
     @Override
     public Void visitIdentificador(JanderParser.IdentificadorContext ctx) {
         String nome = ctx.getText();
@@ -104,6 +176,6 @@ public class JanderSemantico extends JanderBaseVisitor<Void> {
                     "identificador " + nome + " nao declarado");
             }
         }
-        return super.visitIdentificador(ctx);
+        return null;
     }
 }

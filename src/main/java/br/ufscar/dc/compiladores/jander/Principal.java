@@ -12,9 +12,10 @@ package br.ufscar.dc.compiladores.jander;
  */
 
 import java.io.IOException;
+import java.io.PrintWriter;
+
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
-import java.io.PrintWriter;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 
