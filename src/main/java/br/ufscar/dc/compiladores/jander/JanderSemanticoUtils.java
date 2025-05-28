@@ -5,7 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.antlr.v4.runtime.Token; // Adicionado para Map
+import org.antlr.v4.runtime.Token;
 
 public class JanderSemanticoUtils {
     public static List<String> errosSemanticos = new ArrayList<>();
@@ -23,6 +23,7 @@ public class JanderSemanticoUtils {
         tiposComErro.clear();
     }
     
+    // Compatibilidade geral para operações (atribuições, expressões aritméticas, etc.)
     public static boolean compatibilidade(TabelaDeSimbolos tabela, 
                                       TabelaDeSimbolos.TipoJander tipo1, 
                                       TabelaDeSimbolos.TipoJander tipo2) {
@@ -36,11 +37,27 @@ public class JanderSemanticoUtils {
             return true; // Considera registros do mesmo "tipo" compatíveis
         }
 
+        // Compatibilidade entre INTEIRO e REAL
         if ((tipo1 == TabelaDeSimbolos.TipoJander.INTEIRO && tipo2 == TabelaDeSimbolos.TipoJander.REAL) ||
             (tipo1 == TabelaDeSimbolos.TipoJander.REAL && tipo2 == TabelaDeSimbolos.TipoJander.INTEIRO)) {
             return true;
         }
 
+        return false;
+    }
+
+    // Compatibilidade específica para chamadas de função (mais restrita, exceto para INTEIRO/REAL)
+    public static boolean compatibilidadeFuncao(TabelaDeSimbolos tabela, 
+                                      TabelaDeSimbolos.TipoJander tipo1, 
+                                      TabelaDeSimbolos.TipoJander tipo2) {
+        if (tipo1 == tipo2) {
+            return true;
+        }
+        // Permite INTEIRO ser passado para REAL em parâmetros de função
+        if (tipo1 == TabelaDeSimbolos.TipoJander.REAL && tipo2 == TabelaDeSimbolos.TipoJander.INTEIRO) {
+            return true;
+        }
+        // Não permite REAL ser passado para INTEIRO ou outras incompatibilidades
         return false;
     }
 
@@ -100,7 +117,6 @@ public class JanderSemanticoUtils {
         return TabelaDeSimbolos.TipoJander.INVALIDO;
     }
     
-    // MODIFICAÇÃO AQUI
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, JanderParser.Parcela_unarioContext ctx) {
         if (ctx.identificador() != null) {
             String nome = ctx.identificador().getText();
@@ -155,21 +171,21 @@ public class JanderSemanticoUtils {
             List<JanderParser.ExpressaoContext> argumentosPassados = ctx.expressao();
 
             if (tiposParametrosEsperados.size() != argumentosPassados.size()) {
-                adicionarErroSemantico(ctx.start, "incompatibilidade de parametros na chamada de " + nomeFunc);
+                adicionarErroSemantico(ctx.start, "incompatibilidade de parametros (numero) na chamada de " + nomeFunc);
                 // Continue with type checking even if parameter count is wrong, to find more errors if any.
             } else {
                 for (int i = 0; i < tiposParametrosEsperados.size(); i++) {
                     TabelaDeSimbolos.TipoJander tipoParamEsperado = tiposParametrosEsperados.get(i);
                     TabelaDeSimbolos.TipoJander tipoArgumentoPassado = verificarTipo(tabela, argumentosPassados.get(i));
-
-                    if (!compatibilidade(tabela, tipoParamEsperado, tipoArgumentoPassado)) {
-                        adicionarErroSemantico(ctx.start, "incompatibilidade de parametros na chamada de " + nomeFunc);
+                    
+                    if (!compatibilidadeFuncao(tabela, tipoParamEsperado, tipoArgumentoPassado)) {
+                        adicionarErroSemantico(ctx.start, "incompatibilidade de parametros (tipo) na chamada de " + nomeFunc);
                         break; // Stop checking after the first mismatch for this function
                     }
                 }
             }
             // For a function, return its declared return type. For a procedure, it's INVALIDO in an expression context.
-            return (tipoNoTabela == TabelaDeSimbolos.TipoJander.FUNCAO) ? tabela.obterTipoRetornoFuncaoAtual() : TabelaDeSimbolos.TipoJander.INVALIDO;
+            return (tipoNoTabela == TabelaDeSimbolos.TipoJander.FUNCAO) ? tabela.obterTipoRetorno(nomeFunc) : TabelaDeSimbolos.TipoJander.INVALIDO;
         }
         return TabelaDeSimbolos.TipoJander.INVALIDO;
     }
@@ -203,71 +219,124 @@ public class JanderSemanticoUtils {
         return TabelaDeSimbolos.TipoJander.INVALIDO;
     }
     
+    // Lógica de promoção de tipos: se qualquer um for REAL, o resultado é REAL (para numéricos)
+    // Aplicada em Fator, Termo e Exp_aritmetica
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
-                                                  JanderParser.Exp_aritmeticaContext ctx) {
-        TabelaDeSimbolos.TipoJander tipo = null;
-        for (var termo : ctx.termo()) {
-            TabelaDeSimbolos.TipoJander aux = verificarTipo(tabela, termo);
-            if (tipo == null) {
-                tipo = aux;
-            } else if (!compatibilidade(tabela, tipo, aux) && aux != TabelaDeSimbolos.TipoJander.INVALIDO) {
-                tipo = TabelaDeSimbolos.TipoJander.INVALIDO;
+                                                         JanderParser.FatorContext ctx) {
+        TabelaDeSimbolos.TipoJander tipoResultante = null;
+        for (var parcela : ctx.parcela()) {
+            TabelaDeSimbolos.TipoJander tipoParcela = verificarTipo(tabela, parcela);
+
+            if (tipoParcela == TabelaDeSimbolos.TipoJander.INVALIDO) {
+                return TabelaDeSimbolos.TipoJander.INVALIDO;
+            }
+
+            if (tipoResultante == null) {
+                tipoResultante = tipoParcela;
+            } else {
+                if (tipoResultante == TabelaDeSimbolos.TipoJander.REAL || tipoParcela == TabelaDeSimbolos.TipoJander.REAL) {
+                    if ((tipoResultante == TabelaDeSimbolos.TipoJander.INTEIRO || tipoResultante == TabelaDeSimbolos.TipoJander.REAL) &&
+                        (tipoParcela == TabelaDeSimbolos.TipoJander.INTEIRO || tipoParcela == TabelaDeSimbolos.TipoJander.REAL)) {
+                        tipoResultante = TabelaDeSimbolos.TipoJander.REAL;
+                    } else {
+                        adicionarErroSemantico(ctx.start, "fator contem tipos incompativeis para operacao aritmetica");
+                        return TabelaDeSimbolos.TipoJander.INVALIDO;
+                    }
+                } else if (tipoResultante == TabelaDeSimbolos.TipoJander.INTEIRO && tipoParcela == TabelaDeSimbolos.TipoJander.INTEIRO) {
+                    tipoResultante = TabelaDeSimbolos.TipoJander.INTEIRO;
+                } else {
+                    if (!compatibilidade(tabela, tipoResultante, tipoParcela)) {
+                        adicionarErroSemantico(ctx.start, "fator contem tipos incompativeis para operacao aritmetica");
+                        return TabelaDeSimbolos.TipoJander.INVALIDO;
+                    }
+                }
             }
         }
-
-        return tipo != null ? tipo : TabelaDeSimbolos.TipoJander.INVALIDO;
+        return tipoResultante;
     }
 
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                      JanderParser.TermoContext ctx) {
-        TabelaDeSimbolos.TipoJander tipo = null;
+        TabelaDeSimbolos.TipoJander tipoResultante = null;
         for (var fator : ctx.fator()) {
-            TabelaDeSimbolos.TipoJander aux = verificarTipo(tabela, fator);
-            if (tipo == null) {
-                tipo = aux;
-            } else if (!compatibilidade(tabela, tipo, aux) && aux!= TabelaDeSimbolos.TipoJander.INVALIDO) {
-                    adicionarErroSemantico(ctx.start, "tipos incompativeis no termo ");
-                    return TabelaDeSimbolos.TipoJander.INVALIDO;
+            TabelaDeSimbolos.TipoJander tipoFator = verificarTipo(tabela, fator);
+
+            if (tipoFator == TabelaDeSimbolos.TipoJander.INVALIDO) {
+                return TabelaDeSimbolos.TipoJander.INVALIDO;
+            }
+
+            if (tipoResultante == null) {
+                tipoResultante = tipoFator;
+            } else {
+                if (tipoResultante == TabelaDeSimbolos.TipoJander.REAL || tipoFator == TabelaDeSimbolos.TipoJander.REAL) {
+                    if ((tipoResultante == TabelaDeSimbolos.TipoJander.INTEIRO || tipoResultante == TabelaDeSimbolos.TipoJander.REAL) &&
+                        (tipoFator == TabelaDeSimbolos.TipoJander.INTEIRO || tipoFator == TabelaDeSimbolos.TipoJander.REAL)) {
+                        tipoResultante = TabelaDeSimbolos.TipoJander.REAL;
+                    } else {
+                        adicionarErroSemantico(ctx.start, "termo contem tipos incompativeis para operacao aritmetica");
+                        return TabelaDeSimbolos.TipoJander.INVALIDO;
+                    }
+                } else if (tipoResultante == TabelaDeSimbolos.TipoJander.INTEIRO && tipoFator == TabelaDeSimbolos.TipoJander.INTEIRO) {
+                    tipoResultante = TabelaDeSimbolos.TipoJander.INTEIRO;
+                } else {
+                    if (!compatibilidade(tabela, tipoResultante, tipoFator)) {
+                        adicionarErroSemantico(ctx.start, "termo contem tipos incompativeis para operacao aritmetica");
+                        return TabelaDeSimbolos.TipoJander.INVALIDO;
+                    }
                 }
             }
-        
-        return tipo != null ? tipo : TabelaDeSimbolos.TipoJander.INVALIDO;
+        }
+        return tipoResultante != null ? tipoResultante : TabelaDeSimbolos.TipoJander.INVALIDO;
     }
-    
-    public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
-                                                         JanderParser.FatorContext ctx) {
-        TabelaDeSimbolos.TipoJander tipo = null;
-        for (var parcela : ctx.parcela()) {
-            TabelaDeSimbolos.TipoJander aux = verificarTipo(tabela, parcela);
 
-            if (aux == TabelaDeSimbolos.TipoJander.INVALIDO) {
+    public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
+                                                  JanderParser.Exp_aritmeticaContext ctx) {
+        TabelaDeSimbolos.TipoJander tipoResultante = null;
+        for (var termo : ctx.termo()) {
+            TabelaDeSimbolos.TipoJander tipoTermo = verificarTipo(tabela, termo);
+
+            if (tipoTermo == TabelaDeSimbolos.TipoJander.INVALIDO) {
                 return TabelaDeSimbolos.TipoJander.INVALIDO;
             }
 
-            if (tipo == null) {
-                tipo = aux;
-            } else if (!compatibilidade(tabela, tipo, aux) && aux != TabelaDeSimbolos.TipoJander.INVALIDO) {
-                adicionarErroSemantico(ctx.start, "fator contem tipos incompativeis");
-                return TabelaDeSimbolos.TipoJander.INVALIDO;
+            if (tipoResultante == null) {
+                tipoResultante = tipoTermo;
+            } else {
+                if (tipoResultante == TabelaDeSimbolos.TipoJander.REAL || tipoTermo == TabelaDeSimbolos.TipoJander.REAL) {
+                    if ((tipoResultante == TabelaDeSimbolos.TipoJander.INTEIRO || tipoResultante == TabelaDeSimbolos.TipoJander.REAL) &&
+                        (tipoTermo == TabelaDeSimbolos.TipoJander.INTEIRO || tipoTermo == TabelaDeSimbolos.TipoJander.REAL)) {
+                        tipoResultante = TabelaDeSimbolos.TipoJander.REAL;
+                    } else {
+                        adicionarErroSemantico(ctx.start, "expressao aritmetica contem tipos incompativeis");
+                        return TabelaDeSimbolos.TipoJander.INVALIDO;
+                    }
+                } else if (tipoResultante == TabelaDeSimbolos.TipoJander.INTEIRO && tipoTermo == TabelaDeSimbolos.TipoJander.INTEIRO) {
+                    tipoResultante = TabelaDeSimbolos.TipoJander.INTEIRO;
+                } else {
+                    if (!compatibilidade(tabela, tipoResultante, tipoTermo)) {
+                        adicionarErroSemantico(ctx.start, "expressao aritmetica contem tipos incompativeis");
+                        return TabelaDeSimbolos.TipoJander.INVALIDO;
+                    }
+                }
             }
         }
-        
-        return tipo;
+        return tipoResultante != null ? tipoResultante : TabelaDeSimbolos.TipoJander.INVALIDO;
     }
 
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                       JanderParser.Exp_relacionalContext ctx) {
-        TabelaDeSimbolos.TipoJander tipo = verificarTipo(tabela, ctx.exp_aritmetica(0));
+        TabelaDeSimbolos.TipoJander tipo1 = verificarTipo(tabela, ctx.exp_aritmetica(0));
 
         if (ctx.op_relacional() != null) {
-            TabelaDeSimbolos.TipoJander aux = verificarTipo(tabela, ctx.exp_aritmetica(1));
-            if (!compatibilidade(tabela, tipo, aux)) {
+            TabelaDeSimbolos.TipoJander tipo2 = verificarTipo(tabela, ctx.exp_aritmetica(1));
+            if (!compatibilidade(tabela, tipo1, tipo2)) {
+                adicionarErroSemantico(ctx.start, "Operacao relacional com tipos incompativeis");
                 return TabelaDeSimbolos.TipoJander.INVALIDO;
             }
             return TabelaDeSimbolos.TipoJander.LOGICO;
         }
 
-        return tipo;
+        return tipo1;
     }
     
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
@@ -320,11 +389,8 @@ public class JanderSemanticoUtils {
     public static TabelaDeSimbolos.TipoJander obterTipoBaseDoPonteiro(TabelaDeSimbolos tabela, String nomePonteiro) {
         // Implementação simplificada - em um compilador real, isso seria mais complexo
         // e envolveria a análise da declaração do ponteiro
-        // Para este exemplo, assumimos que o tipo base de um ponteiro é INTEIRO ou REAL
         TabelaDeSimbolos.TipoJander tipoDoPonteiro = tabela.verificar(nomePonteiro);
         if (tipoDoPonteiro == TabelaDeSimbolos.TipoJander.PONTEIRO) {
-            // Em um cenário real, você teria que armazenar o tipo base do ponteiro
-            // quando ele é declarado. Por simplicidade, vamos tentar inferir ou usar um padrão.
             // Se o nome do ponteiro contiver "int", assumimos INTEIRO, senão REAL.
             if (nomePonteiro.toLowerCase().contains("int")) {
                 return TabelaDeSimbolos.TipoJander.INTEIRO;
@@ -337,9 +403,8 @@ public class JanderSemanticoUtils {
     
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, JanderParser.CmdAtribuicaoContext ctx) {
         boolean ehDesreferenciacao = ctx.PONTEIRO() != null;
-        String nomeVarCompleto = ctx.identificador().getText(); // Isso será "ponto1.x"
+        String nomeVarCompleto = ctx.identificador().getText(); 
 
-        // Usar tabela.existe e tabela.verificar que já lidam com a notação de ponto
         if (!tabela.existe(nomeVarCompleto)) {
             if (adicionarErroSeNecessario(nomeVarCompleto)) {    
                 adicionarErroSemantico(ctx.identificador().start, "identificador " + nomeVarCompleto + " nao declarado");
@@ -351,39 +416,32 @@ public class JanderSemanticoUtils {
         TabelaDeSimbolos.TipoJander tipoExpr = verificarTipo(tabela, ctx.expressao());
         
         if (tipoExpr == TabelaDeSimbolos.TipoJander.INVALIDO) {
-            return tipoVar; // Propagar o tipo da variável, mesmo que a expressão tenha erro
+            return tipoVar; 
         }
 
         if (ehDesreferenciacao) {
-            // Caso especial para ^ponteiro
             if (tipoVar != TabelaDeSimbolos.TipoJander.PONTEIRO) {
                 adicionarErroSemantico(ctx.start, 
                     nomeVarCompleto + " nao e um ponteiro (uso de ^)");
             } else {
-                // O tipo real é o tipo base do ponteiro
                 TabelaDeSimbolos.TipoJander tipoBase = obterTipoBaseDoPonteiro(tabela, nomeVarCompleto);
                 
-                // Verificar compatibilidade entre o tipo base e o tipo da expressão
                 if (!compatibilidade(tabela, tipoBase, tipoExpr)) {
                     adicionarErroSemantico(ctx.start, "atribuicao nao compativel para ^" + nomeVarCompleto);
                 }
             }
         } else {
-            // Verificação especial para ponteiros
             if (tipoVar == TabelaDeSimbolos.TipoJander.PONTEIRO) {
-                // Permitir atribuição de endereço (&var) a ponteiro
                 if (tipoExpr != TabelaDeSimbolos.TipoJander.PONTEIRO && 
                     tipoExpr != TabelaDeSimbolos.TipoJander.ENDERECO) {
                     adicionarErroSemantico(ctx.start, "atribuicao nao compativel para " + nomeVarCompleto);
                 }
             } 
-            // Verificação especial para registros (tipo REGISTRO ou REGISTRO_TIPO)
             else if (tipoVar == TabelaDeSimbolos.TipoJander.REGISTRO || tipoVar == TabelaDeSimbolos.TipoJander.REGISTRO_TIPO) {
-                if (tipoExpr != tipoVar && tipoExpr != TabelaDeSimbolos.TipoJander.INVALIDO) { // INVALIDO para não adicionar erro duplicado
+                if (tipoExpr != tipoVar && tipoExpr != TabelaDeSimbolos.TipoJander.INVALIDO) { 
                     adicionarErroSemantico(ctx.start, "atribuicao nao compativel para registro " + nomeVarCompleto);
                 }
             }
-            // Verificação normal para outros tipos
             else if (!compatibilidade(tabela, tipoVar, tipoExpr)) {
                 adicionarErroSemantico(ctx.start, "atribuicao nao compativel para " + nomeVarCompleto);
             }
@@ -402,21 +460,20 @@ public class JanderSemanticoUtils {
             return TabelaDeSimbolos.TipoJander.INVALIDO;
         }
         
-        // Verificação de parâmetros
-        TabelaDeSimbolos.TipoJander tipoFunc = tabela.verificar(nomeFunc); // This gets the return type if it's a function or its kind (PROCEDURE)
+        TabelaDeSimbolos.TipoJander tipoFunc = tabela.verificar(nomeFunc); 
         List<TabelaDeSimbolos.TipoJander> tiposParametros = tabela.obterParametros(nomeFunc);
         
         if (tiposParametros.size() != ctx.expressao().size()) {
-            adicionarErroSemantico(ctx.start, "incompatibilidade de parametros na chamada de " + nomeFunc);
-            return tipoFunc; // Return function's declared return type even with parameter mismatch
+            adicionarErroSemantico(ctx.start, "incompatibilidade de parametros (numero) na chamada de " + nomeFunc);
+            return tipoFunc; 
         }
         
         for (int i = 0; i < tiposParametros.size(); i++) {
             TabelaDeSimbolos.TipoJander tipoParam = tiposParametros.get(i);
             TabelaDeSimbolos.TipoJander tipoExpr = verificarTipo(tabela, ctx.expressao(i));
             
-            if (!compatibilidade(tabela, tipoParam, tipoExpr)) {
-                adicionarErroSemantico(ctx.start, "incompatibilidade de parametros na chamada de " + nomeFunc);
+            if (!compatibilidadeFuncao(tabela, tipoParam, tipoExpr)) {
+                adicionarErroSemantico(ctx.start, "incompatibilidade de parametros (tipo) na chamada de " + nomeFunc);
                 break;
             }
         }
@@ -426,7 +483,6 @@ public class JanderSemanticoUtils {
 
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                           JanderParser.CmdRetorneContext ctx) {
-        // Verifica se estamos dentro de uma função
         if (!tabela.estaEmFuncao()) {
             adicionarErroSemantico(ctx.start, "comando retorne nao permitido nesse escopo");
             return TabelaDeSimbolos.TipoJander.INVALIDO;
@@ -445,14 +501,13 @@ public class JanderSemanticoUtils {
     
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, JanderParser.TipoContext ctx) {
         if (ctx.registro() != null) {
-            return TabelaDeSimbolos.TipoJander.REGISTRO; // Para registros anônimos
+            return TabelaDeSimbolos.TipoJander.REGISTRO; 
         } else if (ctx.tipo_estendido() != null) {
             TabelaDeSimbolos.TipoJander tipoExt = verificarTipo(tabela, ctx.tipo_estendido());
-            // Se o tipo estendido é um IDENT que se refere a um REGISTRO_TIPO
             if (ctx.tipo_estendido().tipo_basico_ident() != null && ctx.tipo_estendido().tipo_basico_ident().IDENT() != null) {
                 String nomeIdent = ctx.tipo_estendido().tipo_basico_ident().IDENT().getText();
                 if (tabela.existe(nomeIdent) && tabela.verificar(nomeIdent) == TabelaDeSimbolos.TipoJander.REGISTRO_TIPO) {
-                    return TabelaDeSimbolos.TipoJander.REGISTRO_TIPO; // Retorna o tipo como REGISTRO_TIPO
+                    return TabelaDeSimbolos.TipoJander.REGISTRO_TIPO; 
                 }
             }
             return tipoExt;
@@ -460,8 +515,6 @@ public class JanderSemanticoUtils {
         return TabelaDeSimbolos.TipoJander.INVALIDO;
     }
 
-
-    // Helper to get types from a parameter context, used during global declaration processing
     public static List<TabelaDeSimbolos.TipoJander> getTypesFromParametroContext(TabelaDeSimbolos tabela, JanderParser.ParametroContext ctx) {
         List<TabelaDeSimbolos.TipoJander> types = new ArrayList<>();
         TabelaDeSimbolos.TipoJander tipoParam = JanderSemanticoUtils.verificarTipo(tabela, ctx.tipo_estendido());

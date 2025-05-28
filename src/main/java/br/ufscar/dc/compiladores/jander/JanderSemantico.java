@@ -26,18 +26,15 @@ public class JanderSemantico extends JanderBaseVisitor<Void> {
                 JanderSemanticoUtils.adicionarErroSemantico(ctx.IDENT().getSymbol(),
                     "identificador " + nomeTipo + " ja declarado anteriormente");
             } else {
-                // Adiciona o tipo registro na tabela
-                // Apenas adicione o nome do tipo, os campos serão adicionados a ele
-                tabela.adicionar(nomeTipo, TabelaDeSimbolos.TipoJander.REGISTRO_TIPO); // Mudei para REGISTRO_TIPO
+                tabela.adicionar(nomeTipo, TabelaDeSimbolos.TipoJander.REGISTRO_TIPO);
 
-                // Adiciona os campos do tipo registro
                 if (ctx.tipo().registro() != null) {
                     for (JanderParser.VariavelContext varCtx : ctx.tipo().registro().variavel()) {
                         TabelaDeSimbolos.TipoJander tipoCampo = JanderSemanticoUtils.verificarTipo(tabela, varCtx.tipo());
                         
                         for (JanderParser.IdentificadorContext idCtx : varCtx.identificador()) {
-                            String nomeCampo = idCtx.IDENT(0).getText(); // Pega o primeiro IDENT
-                            tabela.adicionarCampoRegistroATipo(nomeTipo, nomeCampo, tipoCampo); // Novo método para adicionar a um tipo
+                            String nomeCampo = idCtx.IDENT(0).getText(); 
+                            tabela.adicionarCampoRegistroATipo(nomeTipo, nomeCampo, tipoCampo);
                         }
                     }
                 }
@@ -49,26 +46,52 @@ public class JanderSemantico extends JanderBaseVisitor<Void> {
 @Override
 public Void visitVariavel(JanderParser.VariavelContext ctx) {
     TabelaDeSimbolos.TipoJander tipoVar = JanderSemanticoUtils.verificarTipo(tabela, ctx.tipo());
-    String nomeTipoRegistroDeclarado = null; // Para armazenar o nome do tipo de registro se for um TIPO IDENT
+    String nomeTipoRegistroDeclarado = null; 
 
-    // Se o tipo da variável é um IDENT (ou seja, um tipo de registro nomeado)
     if (ctx.tipo().tipo_estendido() != null && ctx.tipo().tipo_estendido().tipo_basico_ident() != null &&
         ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT() != null) {
         nomeTipoRegistroDeclarado = ctx.tipo().tipo_estendido().tipo_basico_ident().IDENT().getText();
     }
     
     for (var ident : ctx.identificador()) {
-        String nomeVar = ident.getText();
-        if (tabela.existe(nomeVar)) {
+        String nomeVar = ident.IDENT(0).getText(); 
+        
+        List<Integer> dimensoes = null;
+        if (ident.dimensao() != null && !ident.dimensao().exp_aritmetica().isEmpty()) {
+            dimensoes = new ArrayList<>();
+            for (JanderParser.Exp_aritmeticaContext dimCtx : ident.dimensao().exp_aritmetica()) {
+                // Tenta avaliar a expressão da dimensão. Assumindo que é um literal NUM_INT simples.
+                // Para expressões mais complexas, seria necessário um avaliador de expressões constantes.
+                if (dimCtx.termo().size() == 1 && 
+                    dimCtx.termo(0).fator().size() == 1 &&
+                    dimCtx.termo(0).fator(0).parcela().size() == 1 &&
+                    dimCtx.termo(0).fator(0).parcela(0).parcela_unario() != null &&
+                    dimCtx.termo(0).fator(0).parcela(0).parcela_unario().NUM_INT() != null) {
+                    try {
+                        int dim = Integer.parseInt(dimCtx.termo(0).fator(0).parcela(0).parcela_unario().NUM_INT().getText());
+                        dimensoes.add(dim);
+                    } catch (NumberFormatException e) {
+                        JanderSemanticoUtils.adicionarErroSemantico(dimCtx.start, "dimensao de array deve ser um inteiro valido");
+                        dimensoes.add(0); // Adiciona um valor placeholder
+                    }
+                } else {
+                    JanderSemanticoUtils.adicionarErroSemantico(dimCtx.start, "dimensao de array deve ser um literal inteiro");
+                    dimensoes.add(0); // Placeholder
+                }
+            }
+        }
+
+        if (tabela.existe(nomeVar)) { 
             JanderSemanticoUtils.adicionarErroSemantico(ident.start,
                 "identificador " + nomeVar + " ja declarado anteriormente");
         } else {
-            tabela.adicionar(nomeVar, tipoVar); // Adiciona a variável à tabela
+            if (dimensoes != null && !dimensoes.isEmpty()) {
+                tabela.adicionarArray(nomeVar, tipoVar, dimensoes);
+            } else {
+                tabela.adicionar(nomeVar, tipoVar);
+            }
 
-            // Se for um tipo de registro nomeado (e.g., 'ponto1: MeuTipoDePonto')
             if (nomeTipoRegistroDeclarado != null && tipoVar == TabelaDeSimbolos.TipoJander.REGISTRO_TIPO) {
-                // Copia os campos do tipo de registro para a instância da variável
-                // Certifique-se que o tipo nomeado realmente existe e é um REGISTRO_TIPO
                 if (tabela.existe(nomeTipoRegistroDeclarado) && tabela.verificar(nomeTipoRegistroDeclarado) == TabelaDeSimbolos.TipoJander.REGISTRO_TIPO) {
                     Map<String, TabelaDeSimbolos.TipoJander> camposDoTipo = tabela.obterCamposDoTipoRegistro(nomeTipoRegistroDeclarado);
                     if (camposDoTipo != null) {
@@ -78,7 +101,6 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
                     }
                 }
             } 
-            // Se for um registro anônimo declarado diretamente (e.g., 'ponto1: registro ... fim_registro')
             else if (tipoVar == TabelaDeSimbolos.TipoJander.REGISTRO) {
                 JanderParser.RegistroContext registroCtx = ctx.tipo().registro();
                 if (registroCtx != null) {
@@ -102,6 +124,13 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
     public Void visitDeclaracao_global(JanderParser.Declaracao_globalContext ctx) {
         String nome = ctx.IDENT().getText();
 
+        List<TabelaDeSimbolos.TipoJander> paramTypes = new ArrayList<>();
+        if (ctx.parametros() != null) {
+            for (JanderParser.ParametroContext paramCtx : ctx.parametros().parametro()) {
+                paramTypes.addAll(JanderSemanticoUtils.getTypesFromParametroContext(tabela, paramCtx)); 
+            }
+        }
+
         if (tabela.existe(nome)) {
             JanderSemanticoUtils.adicionarErroSemantico(ctx.IDENT().getSymbol(),
                 "identificador " + nome + " ja declarado anteriormente");
@@ -109,16 +138,12 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
         }
 
         if (ctx.PROCEDIMENTO() != null) {
-            tabela.novoEscopo(false); // New scope for procedure
+            tabela.adicionarFuncao(nome, TabelaDeSimbolos.TipoJander.PROCEDIMENTO, paramTypes);
 
-            List<TabelaDeSimbolos.TipoJander> paramTypes = new ArrayList<>();
+            tabela.novoEscopo(false); 
             if (ctx.parametros() != null) {
-                for (JanderParser.ParametroContext paramCtx : ctx.parametros().parametro()) {
-                    paramTypes.addAll(JanderSemanticoUtils.getTypesFromParametroContext(tabela, paramCtx)); 
-                }
-                visitParametros(ctx.parametros()); // Add parameters to the current (procedure) scope
+                visitParametros(ctx.parametros()); 
             }
-            tabela.adicionarFuncao(nome, TabelaDeSimbolos.TipoJander.PROCEDIMENTO, paramTypes); // Use adicionarFuncao for procedures too, with PROCEDURE as type and parameters
 
             for (JanderParser.Declaracao_localContext decl : ctx.declaracao_local()) {
                 visitDeclaracao_local(decl);
@@ -131,17 +156,14 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
         } else if (ctx.FUNCAO() != null) {
             TabelaDeSimbolos.TipoJander tipoRetorno = JanderSemanticoUtils.verificarTipo(tabela, ctx.tipo_estendido());
             
-            tabela.novoEscopo(true); // New scope for function
+            tabela.adicionarFuncao(nome, tipoRetorno, paramTypes);
+
+            tabela.novoEscopo(true); 
             tabela.setTipoRetornoFuncaoAtual(tipoRetorno);
             
-            List<TabelaDeSimbolos.TipoJander> paramTypes = new ArrayList<>();
             if (ctx.parametros() != null) {
-                for (JanderParser.ParametroContext paramCtx : ctx.parametros().parametro()) {
-                    paramTypes.addAll(JanderSemanticoUtils.getTypesFromParametroContext(tabela, paramCtx)); 
-                }
-                visitParametros(ctx.parametros()); // Add parameters to the current (function) scope
+                visitParametros(ctx.parametros()); 
             }
-            tabela.adicionarFuncao(nome, tipoRetorno, paramTypes); // Add function with its return type and parameters
 
             for (JanderParser.Declaracao_localContext decl : ctx.declaracao_local()) {
                 visitDeclaracao_local(decl);
@@ -180,7 +202,7 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
     @Override
     public Void visitCmdLeia(JanderParser.CmdLeiaContext ctx) {
         for (var ident : ctx.identificador()) {
-            String nomeVarCompleto = ident.getText(); // Pode ser "ponto1.x"
+            String nomeVarCompleto = ident.getText(); 
             if (!tabela.existe(nomeVarCompleto)) {
                 if(JanderSemanticoUtils.adicionarErroSeNecessario(nomeVarCompleto)) {    
                     JanderSemanticoUtils.adicionarErroSemantico(ident.start,
@@ -214,10 +236,6 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
     @Override
     public Void visitIdentificador(JanderParser.IdentificadorContext ctx) {
         String nome = ctx.getText();
-        // The check for existence of identifiers is primarily handled by the verificarTipo methods
-        // in JanderSemanticoUtils when an identifier is used in an expression or command context.
-        // This specific visit method might not be strictly necessary for "not declared" errors
-        // if all uses of identifiers go through a `verificarTipo` call.
         return null;
     }
 }
