@@ -165,6 +165,7 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
     public Void visitDeclaracao_global(JanderParser.Declaracao_globalContext ctx) {
         String nome = ctx.IDENT().getText();
 
+        //adiciona os tipos de parametros
         List<TabelaDeSimbolos.TipoJander> paramTypes = new ArrayList<>();
         if (ctx.parametros() != null) {
             for (JanderParser.ParametroContext paramCtx : ctx.parametros().parametro()) {
@@ -178,6 +179,7 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
             return null;
         }
 
+        //para quando ctx for procedimento
         if (ctx.PROCEDIMENTO() != null) {
             tabela.adicionarFuncao(nome, TabelaDeSimbolos.TipoJander.PROCEDIMENTO, paramTypes);
 
@@ -194,7 +196,7 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
             }
 
             tabela.abandonarEscopo();
-        } else if (ctx.FUNCAO() != null) {
+        } else if (ctx.FUNCAO() != null) { // para ctx como função
             TabelaDeSimbolos.TipoJander tipoRetorno = JanderSemanticoUtils.verificarTipo(tabela, ctx.tipo_estendido());
 
             tabela.adicionarFuncao(nome, tipoRetorno, paramTypes);
@@ -289,7 +291,22 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
     @Override
     public Void visitCmdRetorne(JanderParser.CmdRetorneContext ctx) {
         JanderSemanticoUtils.verificarCmdRetorne(tabela, ctx);
-        return null; // Always return null for Void visitor methods
+        return null; 
+    }
+
+    @Override
+    public Void visitCmdSe(JanderParser.CmdSeContext ctx) {
+        TabelaDeSimbolos.TipoJander tipoExpressao = JanderSemanticoUtils.verificarTipo(tabela, ctx.expressao());
+        
+        if (tipoExpressao != TabelaDeSimbolos.TipoJander.LOGICO && tipoExpressao != TabelaDeSimbolos.TipoJander.INVALIDO) {
+            JanderSemanticoUtils.adicionarErroSemantico(ctx.expressao().start, "condicao do se deve ser do tipo logico");
+        }
+
+        for (JanderParser.CmdContext cmd : ctx.cmd()) {
+            visit(cmd);
+        }
+
+        return null; 
     }
 
     @Override

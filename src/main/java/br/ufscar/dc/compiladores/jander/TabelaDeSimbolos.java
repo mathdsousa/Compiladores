@@ -14,8 +14,8 @@ public class TabelaDeSimbolos {
         LITERAL,
         LOGICO,
         PONTEIRO,
-        REGISTRO,       // Para instâncias de registros anônimos
-        REGISTRO_TIPO,  // Para definições de tipos de registro nomeados (e.g., 'tipo MeuPonto: registro...')
+        REGISTRO,   
+        REGISTRO_TIPO,
         ENDERECO,
         FUNCAO,
         PROCEDIMENTO,
@@ -29,8 +29,8 @@ public class TabelaDeSimbolos {
         public final TipoJander tipoRetorno;
         public Map<String, TipoJander> camposRegistro; // Para instâncias de registros
         public Map<String, TipoJander> camposTipoRegistro; // Para definições de tipos de registro
-        public List<Integer> dimensoes; // Adicionado: para armazenar as dimensões do array
-        public Object valorConstante; // Adicionado: Para armazenar o valor de constantes
+        public List<Integer> dimensoes; //para armazenar as dimensões do array
+        public Object valorConstante; // Para armazenar o valor de constantes
 
         public EntradaTabelaDeSimbolos(String nome, TipoJander tipo) {
             this.nome = nome;

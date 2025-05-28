@@ -46,18 +46,14 @@ public class JanderSemanticoUtils {
         return false;
     }
 
-    // Compatibilidade específica para chamadas de função (mais restrita, exceto para INTEIRO/REAL)
+    //compatibilidade de funcao
     public static boolean compatibilidadeFuncao(TabelaDeSimbolos tabela, 
-                                      TabelaDeSimbolos.TipoJander tipo1, 
-                                      TabelaDeSimbolos.TipoJander tipo2) {
+                                  TabelaDeSimbolos.TipoJander tipo1, 
+                                  TabelaDeSimbolos.TipoJander tipo2) {
         if (tipo1 == tipo2) {
             return true;
         }
-        // Permite INTEIRO ser passado para REAL em parâmetros de função
-        if (tipo1 == TabelaDeSimbolos.TipoJander.REAL && tipo2 == TabelaDeSimbolos.TipoJander.INTEIRO) {
-            return true;
-        }
-        // Não permite REAL ser passado para INTEIRO ou outras incompatibilidades
+
         return false;
     }
 
@@ -118,7 +114,8 @@ public class JanderSemanticoUtils {
     }
     
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, JanderParser.Parcela_unarioContext ctx) {
-        if (ctx.identificador() != null) {
+       
+        if (ctx.identificador() != null) { // verifica se é identificador
             String nome = ctx.identificador().getText();
             if (!tabela.existe(nome)) {
                 if(adicionarErroSeNecessario(nome)) {
@@ -134,8 +131,7 @@ public class JanderSemanticoUtils {
         else if (ctx.NUM_REAL() != null) {
             return TabelaDeSimbolos.TipoJander.REAL;
         }
-        // Handling for (expressao)
-        else if (ctx.expressao() != null && !ctx.expressao().isEmpty() && ctx.IDENT() == null) {
+        else if (ctx.expressao() != null && !ctx.expressao().isEmpty() && ctx.IDENT() == null) { // é expressão
             TabelaDeSimbolos.TipoJander tipo = null;
             for (var exp : ctx.expressao()) {
                 TabelaDeSimbolos.TipoJander aux = verificarTipo(tabela, exp);
@@ -148,9 +144,7 @@ public class JanderSemanticoUtils {
                 }
             }
             return tipo;
-        }
-        // Handling for function calls: IDENT ABREPAR expressao (VIRG expressao)* FECHAPAR
-        else if (ctx.IDENT() != null && ctx.ABREPAR() != null && ctx.FECHAPAR() != null) {
+        }else if (ctx.IDENT() != null && ctx.ABREPAR() != null && ctx.FECHAPAR() != null) { // funções 
             String nomeFunc = ctx.IDENT().getText();
             if (!tabela.existe(nomeFunc)) {
                 if (adicionarErroSeNecessario(nomeFunc)) {
@@ -161,30 +155,27 @@ public class JanderSemanticoUtils {
 
             TabelaDeSimbolos.TipoJander tipoNoTabela = tabela.verificar(nomeFunc);
 
-            // Check if it's actually a FUNCAO or PROCEDIMENTO (though PROCEDIMENTO typically doesn't return a value for expressions)
             if (tipoNoTabela != TabelaDeSimbolos.TipoJander.FUNCAO && tipoNoTabela != TabelaDeSimbolos.TipoJander.PROCEDIMENTO) {
-                 adicionarErroSemantico(ctx.IDENT().getSymbol(), "identificador " + nomeFunc + " nao e uma funcao ou procedimento");
-                 return TabelaDeSimbolos.TipoJander.INVALIDO;
+                adicionarErroSemantico(ctx.IDENT().getSymbol(), "identificador " + nomeFunc + " nao e uma funcao ou procedimento");
+                return TabelaDeSimbolos.TipoJander.INVALIDO;
             }
             
             List<TabelaDeSimbolos.TipoJander> tiposParametrosEsperados = tabela.obterParametros(nomeFunc);
             List<JanderParser.ExpressaoContext> argumentosPassados = ctx.expressao();
 
             if (tiposParametrosEsperados.size() != argumentosPassados.size()) {
-                adicionarErroSemantico(ctx.start, "incompatibilidade de parametros (numero) na chamada de " + nomeFunc);
-                // Continue with type checking even if parameter count is wrong, to find more errors if any.
+                adicionarErroSemantico(ctx.start, "incompatibilidade de parametros na chamada de " + nomeFunc);
             } else {
                 for (int i = 0; i < tiposParametrosEsperados.size(); i++) {
                     TabelaDeSimbolos.TipoJander tipoParamEsperado = tiposParametrosEsperados.get(i);
                     TabelaDeSimbolos.TipoJander tipoArgumentoPassado = verificarTipo(tabela, argumentosPassados.get(i));
-                    
-                    if (!compatibilidadeFuncao(tabela, tipoParamEsperado, tipoArgumentoPassado)) {
-                        adicionarErroSemantico(ctx.start, "incompatibilidade de parametros (tipo) na chamada de " + nomeFunc);
-                        break; // Stop checking after the first mismatch for this function
+                
+                    if (!compatibilidadeFuncao(tabela, tipoParamEsperado, tipoArgumentoPassado)) { 
+                        adicionarErroSemantico(ctx.start, "incompatibilidade de parametros na chamada de " + nomeFunc);
+                        break;
                     }
                 }
             }
-            // For a function, return its declared return type. For a procedure, it's INVALIDO in an expression context.
             return (tipoNoTabela == TabelaDeSimbolos.TipoJander.FUNCAO) ? tabela.obterTipoRetorno(nomeFunc) : TabelaDeSimbolos.TipoJander.INVALIDO;
         }
         return TabelaDeSimbolos.TipoJander.INVALIDO;
@@ -219,7 +210,6 @@ public class JanderSemanticoUtils {
         return TabelaDeSimbolos.TipoJander.INVALIDO;
     }
     
-    // Lógica de promoção de tipos: se qualquer um for REAL, o resultado é REAL (para numéricos)
     // Aplicada em Fator, Termo e Exp_aritmetica
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
                                                          JanderParser.FatorContext ctx) {
@@ -387,19 +377,12 @@ public class JanderSemanticoUtils {
     
     // Método auxiliar para obter o tipo base de um ponteiro
     public static TabelaDeSimbolos.TipoJander obterTipoBaseDoPonteiro(TabelaDeSimbolos tabela, String nomePonteiro) {
-        // Implementação simplificada - em um compilador real, isso seria mais complexo
-        // e envolveria a análise da declaração do ponteiro
         TabelaDeSimbolos.TipoJander tipoDoPonteiro = tabela.verificar(nomePonteiro);
         if (tipoDoPonteiro == TabelaDeSimbolos.TipoJander.PONTEIRO) {
-            // Se o nome do ponteiro contiver "int", assumimos INTEIRO, senão REAL.
-            // Isso é um placeholder. A lógica real dependeria da declaração do ponteiro.
-            // Para um caso mais genérico, você precisaria armazenar o tipo base do ponteiro
-            // na EntradaTabelaDeSimbolos quando ele é declarado.
-            // Por enquanto, vamos assumir um comportamento genérico ou inferir pelo nome.
             if (nomePonteiro.toLowerCase().contains("int")) {
                 return TabelaDeSimbolos.TipoJander.INTEIRO;
             } else {
-                return TabelaDeSimbolos.TipoJander.REAL; // Exemplo de inferência ou padrão
+                return TabelaDeSimbolos.TipoJander.REAL; 
             }
         }
         return TabelaDeSimbolos.TipoJander.INVALIDO;
@@ -468,16 +451,15 @@ public class JanderSemanticoUtils {
         List<TabelaDeSimbolos.TipoJander> tiposParametros = tabela.obterParametros(nomeFunc);
         
         if (tiposParametros.size() != ctx.expressao().size()) {
-            adicionarErroSemantico(ctx.start, "incompatibilidade de parametros (numero) na chamada de " + nomeFunc);
+            adicionarErroSemantico(ctx.start, "incompatibilidade de parametros na chamada de " + nomeFunc);
             return tipoFunc; 
         }
         
         for (int i = 0; i < tiposParametros.size(); i++) {
             TabelaDeSimbolos.TipoJander tipoParam = tiposParametros.get(i);
             TabelaDeSimbolos.TipoJander tipoExpr = verificarTipo(tabela, ctx.expressao(i));
-            
             if (!compatibilidadeFuncao(tabela, tipoParam, tipoExpr)) {
-                adicionarErroSemantico(ctx.start, "incompatibilidade de parametros (tipo) na chamada de " + nomeFunc);
+                adicionarErroSemantico(ctx.start, "incompatibilidade de parametros na chamada de " + nomeFunc);
                 break;
             }
         }
@@ -485,7 +467,6 @@ public class JanderSemanticoUtils {
         return tipoFunc;
     }
 
-    // New utility method for CmdRetorne
     public static void verificarCmdRetorne(TabelaDeSimbolos tabela, JanderParser.CmdRetorneContext ctx) {
         if (!tabela.estaEmFuncao()) {
             adicionarErroSemantico(ctx.start, "comando retorne nao permitido nesse escopo");
