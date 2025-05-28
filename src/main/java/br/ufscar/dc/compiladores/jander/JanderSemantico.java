@@ -19,6 +19,16 @@ public class JanderSemantico extends JanderBaseVisitor<Void> {
             visitVariavel(ctx.variavel());
         } else if (ctx.CONSTANTE() != null) {
             // Tratamento de constantes
+            String nomeConst = ctx.IDENT().getText();
+            TabelaDeSimbolos.TipoJander tipoConst = JanderSemanticoUtils.verificarTipo(tabela, ctx.tipo_basico());
+
+            if (tabela.existe(nomeConst)) {
+                JanderSemanticoUtils.adicionarErroSemantico(ctx.IDENT().getSymbol(),
+                    "identificador " + nomeConst + " ja declarado anteriormente");
+            } else {
+                tabela.adicionar(nomeConst, tipoConst);
+            }
+
         } else if (ctx.TIPO() != null) {
             String nomeTipo = ctx.IDENT().getText();
             
