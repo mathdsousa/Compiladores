@@ -14,7 +14,8 @@ public class TabelaDeSimbolos {
         LITERAL,
         LOGICO,
         PONTEIRO,
-        REGISTRO,
+        REGISTRO,       // Para instâncias de registros anônimos
+        REGISTRO_TIPO,  // Para definições de tipos de registro nomeados (e.g., 'tipo MeuPonto: registro...')
         ENDERECO,
         FUNCAO,
         PROCEDIMENTO,
@@ -26,15 +27,16 @@ public class TabelaDeSimbolos {
         public final TipoJander tipo;
         public final List<TabelaDeSimbolos.TipoJander> parametros;
         public final TipoJander tipoRetorno;
-        public final Map<String, TipoJander> camposRegistro;
-        
+        public Map<String, TipoJander> camposRegistro; // Para instâncias de registros
+        public Map<String, TipoJander> camposTipoRegistro; // Para definições de tipos de registro
 
         public EntradaTabelaDeSimbolos(String nome, TipoJander tipo) {
             this.nome = nome;
             this.tipo = tipo;
             this.parametros = null;
             this.tipoRetorno = null;
-            this.camposRegistro = tipo == TipoJander.REGISTRO ? new HashMap<>() : null;
+            this.camposRegistro = (tipo == TipoJander.REGISTRO || tipo == TipoJander.REGISTRO_TIPO) ? new HashMap<>() : null; // Inicializa para ambos os tipos de registro
+            this.camposTipoRegistro = (tipo == TipoJander.REGISTRO_TIPO) ? new HashMap<>() : null;
         }
 
         public EntradaTabelaDeSimbolos(String nome, TipoJander tipo, 
@@ -44,10 +46,9 @@ public class TabelaDeSimbolos {
             this.tipo = tipo;
             this.parametros = parametros;
             this.tipoRetorno = tipoRetorno;
-            this.camposRegistro = null;
+            this.camposRegistro = null; // Funções e procedimentos não têm campos de registro
+            this.camposTipoRegistro = null;
         }
-
-        
     }
 
     private final Map<String, EntradaTabelaDeSimbolos> tabela;
@@ -69,11 +70,15 @@ public class TabelaDeSimbolos {
         escopos.peek().put(nome, new EntradaTabelaDeSimbolos(nome, tipo));
     }
 
-    public void adicionarCampoRegistro(String nomeRegistro, String nomeCampo, TipoJander tipoCampo) {
+    // Usado para adicionar campos a uma INSTÂNCIA de registro (e.g., 'ponto1.x')
+    public void adicionarCampoRegistroAInstancia(String nomeInstanciaRegistro, String nomeCampo, TipoJander tipoCampo) {
         for (int i = escopos.size() - 1; i >= 0; i--) {
-            if (escopos.get(i).containsKey(nomeRegistro)) {
-                EntradaTabelaDeSimbolos entrada = escopos.get(i).get(nomeRegistro);
-                if (entrada.tipo == TipoJander.REGISTRO && entrada.camposRegistro != null) {
+            if (escopos.get(i).containsKey(nomeInstanciaRegistro)) {
+                EntradaTabelaDeSimbolos entrada = escopos.get(i).get(nomeInstanciaRegistro);
+                if (entrada.tipo == TipoJander.REGISTRO || entrada.tipo == TipoJander.REGISTRO_TIPO) {
+                    if (entrada.camposRegistro == null) { // Garante que o mapa existe
+                        entrada.camposRegistro = new HashMap<>();
+                    }
                     entrada.camposRegistro.put(nomeCampo, tipoCampo);
                     return;
                 }
@@ -81,16 +86,32 @@ public class TabelaDeSimbolos {
         }
     }
 
-    public TipoJander verificarCampoRegistro(String nomeRegistro, String nomeCampo) {
+    // Usado para adicionar campos a uma DEFINIÇÃO DE TIPO de registro (e.g., 'tipo MeuPonto: registro x: real fim_registro')
+    public void adicionarCampoRegistroATipo(String nomeTipoRegistro, String nomeCampo, TipoJander tipoCampo) {
         for (int i = escopos.size() - 1; i >= 0; i--) {
-            if (escopos.get(i).containsKey(nomeRegistro)) {
-                EntradaTabelaDeSimbolos entrada = escopos.get(i).get(nomeRegistro);
-                if (entrada.tipo == TipoJander.REGISTRO && entrada.camposRegistro != null) {
-                    return entrada.camposRegistro.getOrDefault(nomeCampo, TipoJander.INVALIDO);
+            if (escopos.get(i).containsKey(nomeTipoRegistro)) {
+                EntradaTabelaDeSimbolos entrada = escopos.get(i).get(nomeTipoRegistro);
+                if (entrada.tipo == TipoJander.REGISTRO_TIPO) {
+                    if (entrada.camposTipoRegistro == null) { // Garante que o mapa existe
+                        entrada.camposTipoRegistro = new HashMap<>();
+                    }
+                    entrada.camposTipoRegistro.put(nomeCampo, tipoCampo);
+                    return;
                 }
             }
         }
-        return TipoJander.INVALIDO;
+    }
+
+    public Map<String, TipoJander> obterCamposDoTipoRegistro(String nomeTipoRegistro) {
+        for (int i = escopos.size() - 1; i >= 0; i--) {
+            if (escopos.get(i).containsKey(nomeTipoRegistro)) {
+                EntradaTabelaDeSimbolos entrada = escopos.get(i).get(nomeTipoRegistro);
+                if (entrada.tipo == TipoJander.REGISTRO_TIPO && entrada.camposTipoRegistro != null) {
+                    return new HashMap<>(entrada.camposTipoRegistro);
+                }
+            }
+        }
+        return null; // Retorna null se o tipo de registro não for encontrado ou não tiver campos
     }
 
     public void adicionarFuncao(String nome, TipoJander tipoRetorno, List<TabelaDeSimbolos.TipoJander> parametros) {
@@ -98,25 +119,28 @@ public class TabelaDeSimbolos {
     }
 
     public boolean existe(String nome) {
-        // Verifica se é um campo de registro (contém ponto)
         if (nome.contains(".")) {
             String[] partes = nome.split("\\.");
-            String nomeRegistro = partes[0];
+            String nomeVar = partes[0];
             String nomeCampo = partes[1];
             
-            // Verifica se o registro existe
-            if (existe(nomeRegistro)) {
-                // Verifica se o tipo do registro é REGISTRO
-                TipoJander tipoRegistro = verificar(nomeRegistro);
-                if (tipoRegistro == TipoJander.REGISTRO) {
-                    // Considera que o campo existe para evitar erros duplicados
-                    return true;
+            // Verifica se a variável principal (e.g., ponto1) existe
+            for (int i = escopos.size() - 1; i >= 0; i--) {
+                if (escopos.get(i).containsKey(nomeVar)) {
+                    EntradaTabelaDeSimbolos entrada = escopos.get(i).get(nomeVar);
+                    // Verifica se é uma instância de registro (REGISTRO ou REGISTRO_TIPO) e se tem o campo
+                    if ((entrada.tipo == TipoJander.REGISTRO || entrada.tipo == TipoJander.REGISTRO_TIPO) && entrada.camposRegistro != null && entrada.camposRegistro.containsKey(nomeCampo)) {
+                        return true;
+                    }
+                    // Adição: se a variável é do tipo REGISTRO_TIPO, verifique os campos da *definição* do tipo
+                    // Isso pode ser necessário se você quiser permitir 'MeuTipoDePonto.x' em algum contexto
+                    // Mas para o caso 'ponto1.x', o camposRegistro da instância é o que importa
                 }
             }
             return false;
         }
         
-        // Verifica do escopo mais interno para o mais externo
+        // Verificação normal para variáveis/tipos/funções não-registro
         for (int i = escopos.size() - 1; i >= 0; i--) {
             if (escopos.get(i).containsKey(nome)) {
                 return true;
@@ -126,26 +150,24 @@ public class TabelaDeSimbolos {
     }
 
     public TipoJander verificar(String nome) {
-        // Verifica se é um campo de registro (contém ponto)
         if (nome.contains(".")) {
             String[] partes = nome.split("\\.");
-            String nomeRegistro = partes[0];
+            String nomeVar = partes[0];
             String nomeCampo = partes[1];
             
-            // Verifica se o registro existe
             for (int i = escopos.size() - 1; i >= 0; i--) {
-                if (escopos.get(i).containsKey(nomeRegistro)) {
-                    EntradaTabelaDeSimbolos entrada = escopos.get(i).get(nomeRegistro);
-                    if (entrada.tipo == TipoJander.REGISTRO) {
-                        // Para simplificar, assumimos que todos os campos de registro são do tipo REAL
-                        return TipoJander.REAL;
+                if (escopos.get(i).containsKey(nomeVar)) {
+                    EntradaTabelaDeSimbolos entrada = escopos.get(i).get(nomeVar);
+                    // Verifica se é uma instância de registro e retorna o tipo do campo
+                    if ((entrada.tipo == TipoJander.REGISTRO || entrada.tipo == TipoJander.REGISTRO_TIPO) && entrada.camposRegistro != null) {
+                        return entrada.camposRegistro.getOrDefault(nomeCampo, TipoJander.INVALIDO);
                     }
                 }
             }
             return TipoJander.INVALIDO;
         }
         
-        // Verifica do escopo mais interno para o mais externo
+        // Verificação normal para variáveis/tipos/funções não-registro
         for (int i = escopos.size() - 1; i >= 0; i--) {
             if (escopos.get(i).containsKey(nome)) {
                 return escopos.get(i).get(nome).tipo;
@@ -177,13 +199,13 @@ public class TabelaDeSimbolos {
     public void abandonarEscopo() {
         escopos.pop();
         escoposFuncao.pop();
-        if (escoposFuncao.peek() == null || !escoposFuncao.peek()) {
+        if (!escoposFuncao.empty() && !escoposFuncao.peek()) { // Verifica se não está vazio e se o topo não é uma função
             tipoRetornoAtual = TipoJander.INVALIDO;
         }
     }
 
     public boolean estaEmFuncao() {
-        return escoposFuncao.peek() != null && escoposFuncao.peek();
+        return !escoposFuncao.empty() && escoposFuncao.peek();
     }
 
     public TipoJander obterTipoRetornoFuncaoAtual() {
