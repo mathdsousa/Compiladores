@@ -30,6 +30,7 @@ public class TabelaDeSimbolos {
         public Map<String, TipoJander> camposRegistro; // Para instâncias de registros
         public Map<String, TipoJander> camposTipoRegistro; // Para definições de tipos de registro
         public List<Integer> dimensoes; // Adicionado: para armazenar as dimensões do array
+        public Object valorConstante; // Adicionado: Para armazenar o valor de constantes
 
         public EntradaTabelaDeSimbolos(String nome, TipoJander tipo) {
             this.nome = nome;
@@ -38,7 +39,8 @@ public class TabelaDeSimbolos {
             this.tipoRetorno = null;
             this.camposRegistro = (tipo == TipoJander.REGISTRO || tipo == TipoJander.REGISTRO_TIPO) ? new HashMap<>() : null;
             this.camposTipoRegistro = (tipo == TipoJander.REGISTRO_TIPO) ? new HashMap<>() : null;
-            this.dimensoes = null; // Inicializa nulo para não arrays
+            this.dimensoes = null;
+            this.valorConstante = null;
         }
 
         // Novo construtor para arrays
@@ -50,15 +52,29 @@ public class TabelaDeSimbolos {
             this.camposRegistro = null;
             this.camposTipoRegistro = null;
             this.dimensoes = dimensoes;
+            this.valorConstante = null;
         }
 
-        public EntradaTabelaDeSimbolos(String nome, TipoJander tipo, 
-                                      List<TabelaDeSimbolos.TipoJander> parametros, 
+        public EntradaTabelaDeSimbolos(String nome, TipoJander tipo,
+                                      List<TabelaDeSimbolos.TipoJander> parametros,
                                       TipoJander tipoRetorno) {
             this.nome = nome;
             this.tipo = tipo;
             this.parametros = parametros;
             this.tipoRetorno = tipoRetorno;
+            this.camposRegistro = null;
+            this.camposTipoRegistro = null;
+            this.dimensoes = null;
+            this.valorConstante = null;
+        }
+
+        // Novo construtor para constantes
+        public EntradaTabelaDeSimbolos(String nome, TipoJander tipo, Object valor) {
+            this.nome = nome;
+            this.tipo = tipo;
+            this.valorConstante = valor;
+            this.parametros = null;
+            this.tipoRetorno = null;
             this.camposRegistro = null;
             this.camposTipoRegistro = null;
             this.dimensoes = null;
@@ -81,6 +97,11 @@ public class TabelaDeSimbolos {
 
     public void adicionar(String nome, TipoJander tipo) {
         escopos.peek().put(nome, new EntradaTabelaDeSimbolos(nome, tipo));
+    }
+
+    // Novo método adicionar para constantes
+    public void adicionar(String nome, TipoJander tipo, Object valor) {
+        escopos.peek().put(nome, new EntradaTabelaDeSimbolos(nome, tipo, valor));
     }
 
     // Novo método adicionar para arrays
@@ -127,13 +148,13 @@ public class TabelaDeSimbolos {
                 }
             }
         }
-        return null; 
+        return null;
     }
 
     public void adicionarFuncao(String nome, TipoJander tipoRetorno, List<TabelaDeSimbolos.TipoJander> parametros) {
-        escopos.peek().put(nome, new EntradaTabelaDeSimbolos(nome, 
+        escopos.peek().put(nome, new EntradaTabelaDeSimbolos(nome,
                                                             (tipoRetorno == TipoJander.INVALIDO ? TipoJander.PROCEDIMENTO : TipoJander.FUNCAO),
-                                                            parametros, 
+                                                            parametros,
                                                             tipoRetorno));
     }
 
@@ -141,9 +162,9 @@ public class TabelaDeSimbolos {
     public boolean existe(String nomeCompleto) {
         String nomeBase = nomeCompleto;
 
-        if (nomeCompleto.contains(".")) { 
+        if (nomeCompleto.contains(".")) {
             nomeBase = nomeCompleto.split("\\.")[0];
-        } else if (nomeCompleto.contains("[")) { 
+        } else if (nomeCompleto.contains("[")) {
             nomeBase = nomeCompleto.substring(0, nomeCompleto.indexOf('['));
         }
 
@@ -151,13 +172,13 @@ public class TabelaDeSimbolos {
             if (escopos.get(i).containsKey(nomeBase)) {
                 EntradaTabelaDeSimbolos entrada = escopos.get(i).get(nomeBase);
 
-                if (nomeCompleto.contains(".")) { 
+                if (nomeCompleto.contains(".")) {
                     String nomeCampo = nomeCompleto.split("\\.")[1];
                     return (entrada.tipo == TipoJander.REGISTRO || entrada.tipo == TipoJander.REGISTRO_TIPO) &&
                            entrada.camposRegistro != null && entrada.camposRegistro.containsKey(nomeCampo);
-                } else if (nomeCompleto.contains("[")) { 
+                } else if (nomeCompleto.contains("[")) {
                     return entrada.dimensoes != null;
-                } else { 
+                } else {
                     return true;
                 }
             }
@@ -174,28 +195,38 @@ public class TabelaDeSimbolos {
         } else if (nomeCompleto.contains("[")) {
             nomeBase = nomeCompleto.substring(0, nomeCompleto.indexOf('['));
         }
-        
+
         for (int i = escopos.size() - 1; i >= 0; i--) {
             if (escopos.get(i).containsKey(nomeBase)) {
                 EntradaTabelaDeSimbolos entrada = escopos.get(i).get(nomeBase);
 
-                if (nomeCompleto.contains(".")) { 
+                if (nomeCompleto.contains(".")) {
                     String nomeCampo = nomeCompleto.split("\\.")[1];
                     if ((entrada.tipo == TipoJander.REGISTRO || entrada.tipo == TipoJander.REGISTRO_TIPO) && entrada.camposRegistro != null) {
                         return entrada.camposRegistro.getOrDefault(nomeCampo, TipoJander.INVALIDO);
                     }
-                } else if (nomeCompleto.contains("[")) { 
+                } else if (nomeCompleto.contains("[")) {
                     if (entrada.dimensoes != null) {
-                         return entrada.tipo; 
+                         return entrada.tipo;
                     } else {
-                        return TipoJander.INVALIDO; 
+                        return TipoJander.INVALIDO;
                     }
-                } else { 
+                } else {
                     return entrada.tipo;
                 }
             }
         }
         return TipoJander.INVALIDO;
+    }
+
+    // Novo método para obter a entrada da tabela de símbolos
+    public EntradaTabelaDeSimbolos getEntrada(String nome) {
+        for (int i = escopos.size() - 1; i >= 0; i--) {
+            if (escopos.get(i).containsKey(nome)) {
+                return escopos.get(i).get(nome);
+            }
+        }
+        return null;
     }
 
     public List<TabelaDeSimbolos.TipoJander> obterParametros(String nome) {
@@ -226,14 +257,14 @@ public class TabelaDeSimbolos {
         escopos.push(new HashMap<>());
         escoposFuncao.push(isFuncao);
         if (isFuncao) {
-            tipoRetornoAtual = TipoJander.INVALIDO; 
+            tipoRetornoAtual = TipoJander.INVALIDO;
         }
     }
 
     public void abandonarEscopo() {
         escopos.pop();
         escoposFuncao.pop();
-        if (!escoposFuncao.empty() && !escoposFuncao.peek()) { 
+        if (!escoposFuncao.empty() && !escoposFuncao.peek()) {
             tipoRetornoAtual = TipoJander.INVALIDO;
         }
     }
