@@ -101,13 +101,11 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
                 tabela.adicionar(nomeVar, tipoVar);
             }
 
-            if (nomeTipoRegistroDeclarado != null && tipoVar == TabelaDeSimbolos.TipoJander.REGISTRO_TIPO) {
-                if (tabela.existe(nomeTipoRegistroDeclarado) && tabela.verificar(nomeTipoRegistroDeclarado) == TabelaDeSimbolos.TipoJander.REGISTRO_TIPO) {
-                    Map<String, TabelaDeSimbolos.TipoJander> camposDoTipo = tabela.obterCamposDoTipoRegistro(nomeTipoRegistroDeclarado);
-                    if (camposDoTipo != null) {
-                        for (Map.Entry<String, TabelaDeSimbolos.TipoJander> entry : camposDoTipo.entrySet()) {
-                            tabela.adicionarCampoRegistroAInstancia(nomeVar, entry.getKey(), entry.getValue());
-                        }
+            if (nomeTipoRegistroDeclarado != null && tabela.existe(nomeTipoRegistroDeclarado) && tabela.verificar(nomeTipoRegistroDeclarado) == TabelaDeSimbolos.TipoJander.REGISTRO_TIPO) {
+                Map<String, TabelaDeSimbolos.TipoJander> camposDoTipo = tabela.obterCamposDoTipoRegistro(nomeTipoRegistroDeclarado);
+                if (camposDoTipo != null) {
+                    for (Map.Entry<String, TabelaDeSimbolos.TipoJander> entry : camposDoTipo.entrySet()) {
+                        tabela.adicionarCampoRegistroAInstancia(nomeVar, entry.getKey(), entry.getValue());
                     }
                 }
             } 
@@ -189,7 +187,15 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
 
     @Override
     public Void visitParametro(JanderParser.ParametroContext ctx) {
+        // Obtenha o tipo do parâmetro
         TabelaDeSimbolos.TipoJander tipoParam = JanderSemanticoUtils.verificarTipo(tabela, ctx.tipo_estendido());
+        String nomeTipoEstendido = null;
+
+        // Se for um tipo estendido e um IDENT (que pode ser um nome de registro)
+        if (ctx.tipo_estendido() != null && ctx.tipo_estendido().tipo_basico_ident() != null &&
+            ctx.tipo_estendido().tipo_basico_ident().IDENT() != null) {
+            nomeTipoEstendido = ctx.tipo_estendido().tipo_basico_ident().IDENT().getText();
+        }
         
         for (var ident : ctx.identificador()) {
             String nomeParam = ident.getText();
@@ -198,6 +204,16 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
                     "identificador " + nomeParam + " ja declarado anteriormente");
             } else {
                 tabela.adicionar(nomeParam, tipoParam);
+
+                // Se o parâmetro for de um tipo REGISTRO_TIPO nomeado, adicione seus campos como campos da instância
+                if (nomeTipoEstendido != null && tabela.existe(nomeTipoEstendido) && tabela.verificar(nomeTipoEstendido) == TabelaDeSimbolos.TipoJander.REGISTRO_TIPO) {
+                    Map<String, TabelaDeSimbolos.TipoJander> camposDoTipo = tabela.obterCamposDoTipoRegistro(nomeTipoEstendido);
+                    if (camposDoTipo != null) {
+                        for (Map.Entry<String, TabelaDeSimbolos.TipoJander> entry : camposDoTipo.entrySet()) {
+                            tabela.adicionarCampoRegistroAInstancia(nomeParam, entry.getKey(), entry.getValue());
+                        }
+                    }
+                }
             }
         }
         return null;
@@ -239,8 +255,8 @@ public Void visitVariavel(JanderParser.VariavelContext ctx) {
 
     @Override
     public Void visitCmdRetorne(JanderParser.CmdRetorneContext ctx) {
-        JanderSemanticoUtils.verificarTipo(tabela, ctx);
-        return null;
+        JanderSemanticoUtils.verificarCmdRetorne(tabela, ctx);
+        return null; // Always return null for Void visitor methods
     }
 
     @Override

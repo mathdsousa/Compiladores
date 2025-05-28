@@ -331,7 +331,7 @@ public class JanderSemanticoUtils {
             TabelaDeSimbolos.TipoJander tipo2 = verificarTipo(tabela, ctx.exp_aritmetica(1));
             if (!compatibilidade(tabela, tipo1, tipo2)) {
                 adicionarErroSemantico(ctx.start, "Operacao relacional com tipos incompativeis");
-                return TabelaDeSimbolos.TipoJander.INVALIDO;
+                return TabelaDeSimbolos.TipoJander.LOGICO; // Still return LOGICO even if error, to allow further checks
             }
             return TabelaDeSimbolos.TipoJander.LOGICO;
         }
@@ -392,6 +392,10 @@ public class JanderSemanticoUtils {
         TabelaDeSimbolos.TipoJander tipoDoPonteiro = tabela.verificar(nomePonteiro);
         if (tipoDoPonteiro == TabelaDeSimbolos.TipoJander.PONTEIRO) {
             // Se o nome do ponteiro contiver "int", assumimos INTEIRO, senão REAL.
+            // Isso é um placeholder. A lógica real dependeria da declaração do ponteiro.
+            // Para um caso mais genérico, você precisaria armazenar o tipo base do ponteiro
+            // na EntradaTabelaDeSimbolos quando ele é declarado.
+            // Por enquanto, vamos assumir um comportamento genérico ou inferir pelo nome.
             if (nomePonteiro.toLowerCase().contains("int")) {
                 return TabelaDeSimbolos.TipoJander.INTEIRO;
             } else {
@@ -481,22 +485,19 @@ public class JanderSemanticoUtils {
         return tipoFunc;
     }
 
-    public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, 
-                                                          JanderParser.CmdRetorneContext ctx) {
+    // New utility method for CmdRetorne
+    public static void verificarCmdRetorne(TabelaDeSimbolos tabela, JanderParser.CmdRetorneContext ctx) {
         if (!tabela.estaEmFuncao()) {
             adicionarErroSemantico(ctx.start, "comando retorne nao permitido nesse escopo");
-            return TabelaDeSimbolos.TipoJander.INVALIDO;
+            return;
         }
         
         TabelaDeSimbolos.TipoJander tipoExpr = verificarTipo(tabela, ctx.expressao());
-        TabelaDeSimbolos.TipoJander tipoRetorno = tabela.obterTipoRetornoFuncaoAtual();
+        TabelaDeSimbolos.TipoJander tipoRetornoEsperado = tabela.obterTipoRetornoFuncaoAtual();
         
-        if (!compatibilidade(tabela, tipoRetorno, tipoExpr)) {
+        if (!compatibilidade(tabela, tipoRetornoEsperado, tipoExpr)) {
             adicionarErroSemantico(ctx.start, "tipo de retorno incompativel");
-            return TabelaDeSimbolos.TipoJander.INVALIDO;
         }
-        
-        return tipoRetorno;
     }
     
     public static TabelaDeSimbolos.TipoJander verificarTipo(TabelaDeSimbolos tabela, JanderParser.TipoContext ctx) {
