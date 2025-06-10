@@ -92,7 +92,7 @@ corpo : declaracao_local* cmd*;
 cmd : cmdLeia | cmdEscreva | cmdSe | cmdCaso | cmdPara | cmdEnquanto | cmdFaca | cmdAtribuicao | cmdChamada | cmdRetorne;
 cmdLeia : LEIA ABREPAR PONTEIRO? identificador (VIRG PONTEIRO? identificador)* FECHAPAR;
 cmdEscreva : ESCREVA ABREPAR expressao (VIRG expressao)* FECHAPAR;
-cmdSe : SE expressao ENTAO cmd* (SENAO cmd*)? FIM_SE;
+cmdSe : SE expressao ENTAO (cmdEntao+=cmd)* (SENAO (cmdSenao+=cmd)*)? FIM_SE;
 cmdCaso : CASO exp_aritmetica SEJA selecao (SENAO cmd*)? FIM_CASO;
 cmdPara : PARA IDENT ATRIB exp_aritmetica ATE exp_aritmetica FACA cmd* FIM_PARA;
 cmdEnquanto : ENQUANTO expressao FACA cmd* FIM_ENQUANTO;

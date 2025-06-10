@@ -57,11 +57,19 @@ public class Principal {
                 if (!JanderSemanticoUtils.errosSemanticos.isEmpty()) {
                     JanderSemanticoUtils.errosSemanticos.forEach(pw::println);
                 } else {
-                    pw.println("Nenhum erro semantico encontrado.");
+                    //pw.println("Nenhum erro semantico encontrado.");
                 }
 
                 // Finaliza a compilação
-                pw.println("Fim da compilacao");
+                //pw.println("Fim da compilacao");
+                
+                if (JanderSemanticoUtils.errosSemanticos.isEmpty()) {
+                    Gerador agc = new Gerador();
+                    agc.visitPrograma(ctx);
+
+                    pw.print(agc.saida.toString());
+                }
+                
             }
         } catch (IOException ex) {
             System.err.println("Erro ao processar o arquivo: " + ex.getMessage());
