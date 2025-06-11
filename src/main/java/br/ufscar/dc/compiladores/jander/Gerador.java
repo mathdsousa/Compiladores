@@ -9,10 +9,10 @@ import br.ufscar.dc.compiladores.jander.TabelaDeSimbolos.TipoJander;
 
 public class Gerador extends JanderBaseVisitor<Void> {
 
-    // String que receberá o programa em C ao longo da análise.
+    // String que recebe o programa em C 
     StringBuilder saida  = new StringBuilder();
     
-    // Criação da tabela principal e inicialização de escopos.
+    // Criação da tabela principal
     TabelaDeSimbolos tabela  = new TabelaDeSimbolos();
     
     // Método auxiliar que recebe um TipoJander e o converte para a
@@ -26,11 +26,11 @@ public class Gerador extends JanderBaseVisitor<Void> {
                 case INTEIRO:
                     tipoRetorno = "int";
                     break; 
-                case LITERAL:
-                    tipoRetorno = "char";
-                    break; 
                 case REAL:
                     tipoRetorno = "float";
+                    break; 
+                case LITERAL:
+                    tipoRetorno = "char";
                     break; 
                 default:
                     break;
@@ -39,9 +39,30 @@ public class Gerador extends JanderBaseVisitor<Void> {
         
         return tipoRetorno;
     }
-
-    // Método auxiliar que recebe uma string de um tipo dos casos
-    // de entrada e retorna o TipoJander auxiliar.
+    
+    // Método auxiliar que converte tipo
+    public String verificaTipoC(String tipo) {
+        
+        String tipoRetorno = null;
+        
+        switch (tipo) {
+            case "inteiro":
+                tipoRetorno = "int";
+                break; 
+            case "literal":
+                tipoRetorno = "char";
+                break; 
+            case "real":
+                tipoRetorno = "float";
+                break; 
+            default:
+                break;
+        }
+        
+        return tipoRetorno;
+    }
+    
+    // Método auxiliar que recebe converte tipo
     public TipoJander converteTipoJander(String tipo) {
 
         TipoJander tipoRetorno = TipoJander.INVALIDO;
@@ -66,31 +87,8 @@ public class Gerador extends JanderBaseVisitor<Void> {
         return tipoRetorno;
     }
 
-    // Método auxiliar que recebe uma string com um tipo e retorna
-    // o tipo C equivalente.
-    public String verificaTipoC(String tipo) {
-        
-        String tipoRetorno = null;
-        
-        switch (tipo) {
-            case "inteiro":
-                tipoRetorno = "int";
-                break; 
-            case "literal":
-                tipoRetorno = "char";
-                break; 
-            case "real":
-                tipoRetorno = "float";
-                break; 
-            default:
-                break;
-        }
-        
-        return tipoRetorno;
-    }
 
-    // Método auxiiliar que recebe uma string que representa um tipo C
-    // e retorna o parâmetro equivalente para sua leitura ou impressão em C.
+    // Método auxiiliar que verifica o tipo do parametro
     public String verificaParamTipo(String tipo) {
         
         String tipoRetorno = null;
@@ -112,8 +110,7 @@ public class Gerador extends JanderBaseVisitor<Void> {
         return tipoRetorno;
     }
 
-    // Método auxiiliar que recebe um TipoJander e retorna o parâmetro 
-    // equivalente para sua leitura ou impressão em C.  
+    // Método que recebe TipoJander e retorna o parâmetro em c 
     public String verificaParamTipoJander(TipoJander tipoAuxTipoJander) {
 
         String tipoRetorno = null;
@@ -136,38 +133,36 @@ public class Gerador extends JanderBaseVisitor<Void> {
         return tipoRetorno;
     }
 
-    // Método auxiliar que verifica a existência de um tipo na tabela.
+    // Verifica se há algum tipo na tabela
     public boolean verificaTipoTabela(TabelaDeSimbolos tabela, String tipo){
 
         return tabela.existe(tipo);
     }
     
-    // Método auxiliar que recebe uma string e retorna os limites utilizados
-    // em um comando Caso (Switch).
+    // Limites do switch
     public String getLimitesCaso(String str, boolean ehEsquerda) {
                 
         String strAux;
         
-        // Verificação necessária para identificar se trata-se de uma expressão
-        // com limites esquerdo e direito, ou se é apenas um único valor.
+        // Valor unico ou possui limites na esquerda e direita
         if (str.contains(".")) {
 
-            int cont = 0;
             boolean continua = true;
+            int count = 0;
             
             while (continua) {
-                strAux = str.substring(cont);
+                strAux = str.substring(count);
 
                 if (strAux.startsWith("."))
                     continua = false;
                 else
-                    cont++;
+                    count++;
             }
 
             if (ehEsquerda)
-                strAux = str.substring(0, cont);
+                strAux = str.substring(0, count);
             else
-                strAux = str.substring(cont + 2);
+                strAux = str.substring(count + 2);
         
         } else
             strAux = str;
@@ -175,72 +170,69 @@ public class Gerador extends JanderBaseVisitor<Void> {
         return strAux;
     }
     
-    // Método auxiliar que separa os argumentos de um expressão relacional,
-    // usado nos casos dos operadores de igual e diferente.
+    // Separa os argumentos de uma expressao relacional
     public String separaArg(String total, int valor) {
         
         String argAux;
+        int count = 0;
         boolean continua = true;
-        int cont = 0;
 
         total = total.substring(1);
         
         while (continua) {
-            argAux = total.substring(cont);
+            argAux = total.substring(count);
 
             if (argAux.startsWith("=") || argAux.startsWith("<>"))
                 continua = false;
             else
-                cont++;
+                count++;
         }
 
         if (valor == 0) {
-            argAux = total.substring(0, cont);
+            argAux = total.substring(0, count);
         } else {
-            total = total.substring(cont+1);
-            cont = 0;
+            total = total.substring(count+1);
+            count = 0;
             continua = true;
             while (continua) {
-                argAux = total.substring(cont);
+                argAux = total.substring(count);
 
                 if (argAux.startsWith(")"))
                     continua = false;
                 else
-                    cont++;
+                    count++;
             }
-            argAux = total.substring(0, cont);
+            argAux = total.substring(0, count);
         }
         
         return argAux;
     }
     
-    // Método auxiliar que recebe uma string e separa as parcelas de
-    // uma expressão aritmética.
+    // Separa uma expresao aritmetica
     public String separaExp(String total, int valor) {
         
         String argAux;
+        int count = 0;
         boolean continua = true;
-        int cont = 0;
         
         while (continua) {
-            argAux = total.substring(cont);
+            argAux = total.substring(count);
 
             if (argAux.startsWith("+") || argAux.startsWith("-") || argAux.startsWith("*") || argAux.startsWith("/"))
                 continua = false;
             else
-                cont++;
+                count++;
         }
 
         if (valor == 0)
-            argAux = total.substring(0, cont);
+            argAux = total.substring(0, count);
         else
-            argAux = total.substring(cont + 1);
+            argAux = total.substring(count + 1);
 
         return argAux;
     }
     
-    // Método auxiliar que recebe uma string de uma expressão e retorna
-    // apenas o operador utilizado na expressão.
+    // Verifica o operador utilizado
     public String verificaOp(String total) {
         String opRetorno = null;
         
@@ -277,54 +269,53 @@ public class Gerador extends JanderBaseVisitor<Void> {
     }
     
     @Override
-public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
-    String str;
+    public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
+        String str;
 
-    if (ctx.valor_constante() != null) {
-        str = "#define " + ctx.IDENT().getText() + " " + ctx.valor_constante().getText() + "\n";
-        saida.append(str);
-    } 
-    else if (ctx.tipo() != null) {
-        // 1. Primeiro adiciona o tipo de registro no escopo GLOBAL
-        String nomeRegistro = ctx.IDENT().getText();
-        tabela.adicionar(nomeRegistro, TabelaDeSimbolos.TipoJander.REGISTRO_TIPO);
-        
-        // 2. Gera a struct
-        saida.append("typedef struct {\n");
-        
-        // 3. Processa os campos (sem criar novo escopo)
-        if (ctx.tipo().registro() != null) {
-            for (JanderParser.VariavelContext varCtx : ctx.tipo().registro().variavel()) {
-                TabelaDeSimbolos.TipoJander tipoCampo = JanderSemanticoUtils.verificarTipo(tabela, varCtx.tipo());
-                
-                for (JanderParser.IdentificadorContext idCtx : varCtx.identificador()) {
-                    String nomeCampo = idCtx.IDENT(0).getText();
-                    
-                    // Gera o código do campo
-                    saida.append("    " + converteTipo(tipoCampo) + " " + nomeCampo);
-                    if (tipoCampo == TipoJander.LITERAL) {
-                        saida.append("[80]");
+        if (ctx.valor_constante() != null) {
+            str = "#define " + ctx.IDENT().getText() + " " + ctx.valor_constante().getText() + "\n";
+            saida.append(str);
+        } 
+        else if (ctx.tipo() != null) {
+            // 1. Primeiro adiciona o tipo de registro no escopo GLOBAL
+            String nomeRegistro = ctx.IDENT().getText();
+            tabela.adicionar(nomeRegistro, TabelaDeSimbolos.TipoJander.REGISTRO_TIPO);
+
+            // 2. Gera a struct
+            saida.append("typedef struct {\n");
+
+            // 3. Processa os campos (sem criar novo escopo)
+            if (ctx.tipo().registro() != null) {
+                for (JanderParser.VariavelContext varCtx : ctx.tipo().registro().variavel()) {
+                    TabelaDeSimbolos.TipoJander tipoCampo = JanderSemanticoUtils.verificarTipo(tabela, varCtx.tipo());
+
+                    for (JanderParser.IdentificadorContext idCtx : varCtx.identificador()) {
+                        String nomeCampo = idCtx.IDENT(0).getText();
+
+                        // Gera o código do campo
+                        saida.append("    " + converteTipo(tipoCampo) + " " + nomeCampo);
+                        if (tipoCampo == TipoJander.LITERAL) {
+                            saida.append("[80]");
+                        }
+                        saida.append(";\n");
+
+                        // Adiciona o campo ao tipo de registro
+                        tabela.adicionarCampoRegistroATipo(nomeRegistro, nomeCampo, tipoCampo);
                     }
-                    saida.append(";\n");
-                    
-                    // Adiciona o campo ao tipo de registro
-                    tabela.adicionarCampoRegistroATipo(nomeRegistro, nomeCampo, tipoCampo);
                 }
             }
+
+            saida.append("} ").append(nomeRegistro).append(";\n");
         }
-        
-        saida.append("} ").append(nomeRegistro).append(";\n");
+        else if (ctx.variavel() != null) {
+            visitVariavel(ctx.variavel());
+        }
+
+        return null;
     }
-    else if (ctx.variavel() != null) {
-        visitVariavel(ctx.variavel());
-    }
-    
-    return null;
-}
     @Override
     public Void visitVariavel(JanderParser.VariavelContext ctx) {
 
-        boolean tipoEstendido = false;
         String str;
 
         // Verifica se é um tipo básico.
@@ -340,7 +331,6 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
             }
 
             if (tabela.existe(tipoVariavel) && tabela.verificar(tipoVariavel) == TipoJander.REGISTRO_TIPO) {
-                // É um tipo registro definido anteriormente
                 for (JanderParser.IdentificadorContext ictx : ctx.identificador()) {
                     nomeVar = ictx.getText();
                     tabela.adicionar(nomeVar, TipoJander.REGISTRO_TIPO);
@@ -351,7 +341,6 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
                 }
                 return null;
             } else {
-                // É um tipo básico
                 tipoAuxTipoJander = converteTipoJander(tipoVariavel);
                 tipoVariavel = converteTipo(tipoAuxTipoJander);
             }
@@ -373,7 +362,7 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
             }
 
         } else {
-            // Cria um novo escopo temporário para o corpo do registro
+            // Cria escopo temporário para o corpo do registro
             tabela.novoEscopo(false);
 
             saida.append(" struct {\n");
@@ -410,7 +399,7 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
         // Cria um novo escopo para os parâmetros e corpo da função/procedimento
         tabela.novoEscopo(true);
 
-        String tipo, nomeVariaveis;
+        String tipo;
 
         // Verifica e imprime o tipo da função em C.
         if (ctx.FUNCAO() != null)
@@ -498,8 +487,7 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
         // Verifica se é uma expressão sem parênteses.
         if (!ctx.expressao().get(0).getText().contains("(")) {
             saida.append(ctx.getText());
-        // Caso a expressão tenha parênteses, analisa as expressões internas de forma
-        // individual e recursiva.
+        // Caso a expressao tem parênteses, analisa as expressoes uma a uma
         } else {
             saida.append("(");
             super.visitParcela_unario(ctx);
@@ -512,11 +500,9 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
     @Override
     public Void visitOp_relacional(JanderParser.Op_relacionalContext ctx) {
 
-        // String criada para receber o operador da expressão atual.
         String strRetorno = ctx.getText();
 
-        // Verifica se é o operador de igual para substituí-lo pelo operador
-        // correto em C.
+        // Verifica se é o operador de igual
         if (ctx.getText().contains("="))
             if (!ctx.getText().contains("<=") || !ctx.getText().contains(">="))
                 strRetorno = "==";
@@ -532,7 +518,6 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
     public Void visitCmdRetorne(JanderParser.CmdRetorneContext ctx) {
 
         saida.append("return ");
-        // Análise da expressão que está sendo retornada.
         super.visitExpressao(ctx.expressao());
         saida.append(";\n");
 
@@ -543,13 +528,13 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
     public Void visitCmdAtribuicao(JanderParser.CmdAtribuicaoContext ctx) {
         String str;
 
-        // Obtém o escopo atual a partir da pilha
+        // Escopo atual
         TabelaDeSimbolos escopoAtual = tabela;
 
         String nomeIdent = ctx.identificador().getText();
-        String nomeBase = nomeIdent.split("\\.")[0]; // Caso seja acesso a campo de registro
+        String nomeBase = nomeIdent.split("\\.")[0];
 
-        // Verifica se o identificador existe no escopo (com ou sem ponto)
+        // Verifica se o identificador existe no escopo
         if (!escopoAtual.existe(nomeBase)) {
             System.err.println("Erro: variável '" + nomeBase + "' não declarada.");
         }
@@ -577,8 +562,7 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
     @Override
     public Void visitExpressao(JanderParser.ExpressaoContext ctx) {
 
-        // Verifica se existe mais de um argumento no termo e, caso
-        // não exista, executa a visitação apenas no primeiro e único termo.
+        // Verifica se existe mais de um argumento
         if (ctx.termo_logico().size() > 1) {
         
             for(JanderParser.Termo_logicoContext termoLogico : ctx.termo_logico()) {
@@ -595,8 +579,7 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
     @Override 
     public Void visitTermo_logico(JanderParser.Termo_logicoContext ctx){
         
-        // Verifica se existe mais de um argumento no fator e, caso
-        // não exista, executa a visitação apenas no primeiro e único fator.
+        // Verifica se existe mais de um argumento
         if (ctx.fator_logico().size() > 1) {
         
             for(JanderParser.Fator_logicoContext fatorLogico : ctx.fator_logico()) {
@@ -623,16 +606,6 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
     }
     
     @Override
-    public Void visitOp2(JanderParser.Op2Context ctx) {
-
-        saida.append(ctx.getText());
-
-        super.visitOp2(ctx);
-
-        return null;
-    }
-    
-    @Override
     public Void visitParcela_logica(JanderParser.Parcela_logicaContext ctx) {
         
         if(ctx.getText().contains("falso"))
@@ -646,15 +619,23 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
     }
     
     @Override
+    public Void visitOp2(JanderParser.Op2Context ctx) {
+
+        saida.append(ctx.getText());
+
+        super.visitOp2(ctx);
+
+        return null;
+    }
+    
+    @Override
     public Void visitExp_relacional(JanderParser.Exp_relacionalContext ctx) {
         
         String str;
         String opAtual = ctx.getText();
         String expAtual = ctx.exp_aritmetica().get(0).getText();
 
-        // Verifica se o operador atual é o de diferença ou igualdade, para tratá-los
-        // de forma especial visto que precisam ser substituídos por seus equivalentes
-        // em C.
+        // Verifica se o operador é o de diferença ou igualdade
         if (expAtual.contains("<>"))
             opAtual = "<>";
         else if (expAtual.contains("="))
@@ -665,8 +646,7 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
             saida.append(expAtual);
             saida.append(ctx.op_relacional().getText());
             saida.append(ctx.exp_aritmetica(1).getText());
-        // Situação em que precisa tratar dos operadores de igualdade e diferença,
-        // ou de uma expressão aritmética.
+        // Tratar dos operadores de igualdade e diferença ou de uma expressão aritmética
         } else {
             switch(opAtual) {
                 case "=" :
@@ -682,8 +662,7 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
                 case "<>":
                     saida.append("!=");
                     break;
-                // Caso não seja nenhum dos casos anteriores, trata-se de uma
-                // expressão aritmética.
+                // Trata-se de uma expressão aritmética
                 default:
                     arg1 = separaExp(expAtual, 0);
                     arg2 = separaExp(expAtual, 1);
@@ -699,12 +678,109 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
     }
     
     @Override
+    public Void visitCmdLeia(JanderParser.CmdLeiaContext ctx) {
+
+        TabelaDeSimbolos escopoAtual = tabela;
+        TipoJander tipoAuxTipoJander;
+        String codigoTipo;
+        String str;
+        String nomeVar;
+
+        // Executa as verificações dos parâmetros atuais.
+        for (JanderParser.IdentificadorContext ictx : ctx.identificador()) {
+            nomeVar = ictx.getText();
+            tipoAuxTipoJander = escopoAtual.verificar(nomeVar);
+            codigoTipo = verificaParamTipoJander(tipoAuxTipoJander);
+
+            if (tipoAuxTipoJander == TipoJander.LITERAL) {
+                str = "gets(" + nomeVar + ");\n";
+                saida.append(str);
+            // Impressão dos outros tipos básicos.
+            } else {
+                str = "scanf(\"%" + codigoTipo + "\",&" + nomeVar + ");\n";
+                saida.append(str);
+            }
+        }
+
+        return null;
+    }
+    
+    @Override
+    public Void visitCmdEscreva(JanderParser.CmdEscrevaContext ctx) {
+        TabelaDeSimbolos escopoAtual = tabela;
+
+        for (JanderParser.ExpressaoContext ectx : ctx.expressao()) {
+            String str;
+
+            saida.append("printf(\"");
+
+            // Se é uma string literal
+            if (ectx.getText().contains("\"")) {
+                str = ectx.getText().replace("\"", "") + "\");\n";
+                saida.append(str);
+            } 
+            // Caso seja acesso a campo de registro
+            else if (ectx.getText().contains(".")) {
+                String[] partes = ectx.getText().split("\\.");
+                String nomeRegistro = partes[0];
+                String nomeCampo = partes[1];
+
+                // Verifica se o registro existe na tabela de símbolos
+                if (tabela.existe(nomeRegistro)) {
+                    // Obtém os campos do registro
+                    Map<String, TipoJander> camposRegistro = tabela.obterCamposDoTipoRegistro(nomeRegistro);
+
+                    if (camposRegistro != null && camposRegistro.containsKey(nomeCampo)) {
+                        TipoJander tipoCampo = camposRegistro.get(nomeCampo);
+                        String codTipoExp = verificaParamTipoJander(tipoCampo);
+
+                        if (codTipoExp != null) {
+                            str = "%" + codTipoExp + "\", " + ectx.getText() + ");\n";
+                            saida.append(str);
+                        } else {
+                            // Tipo não reconhecido - tratar erro
+                            str = "%d\", " + ectx.getText() + ");\n"; // default para int
+                            saida.append(str);
+                        }
+                    } else {
+                        // Campo não encontrado - tratar erro
+                        str = "%d\", " + ectx.getText() + ");\n"; // default para int
+                        saida.append(str);
+                    }
+                } else {
+                    str = "%d\", " + ectx.getText() + ");\n";
+                    saida.append(str);
+                }
+            } 
+            // Caso seja uma expressão normal
+            else {
+                TipoJander tipoAuxTipoJanderExp = verificarTipo(escopoAtual, ectx);
+                String codTipoExp = verificaParamTipoJander(tipoAuxTipoJanderExp);
+
+                if (codTipoExp != null) {
+                    if (tipoAuxTipoJanderExp == TipoJander.LITERAL) {
+                        str = "%s" + "\", " + ectx.getText() + ");\n";
+                    } else {
+                        str = "%" + codTipoExp + "\", " + ectx.getText() + ");\n";
+                    }
+                    saida.append(str);
+                } else {
+                    str = "%d\", " + ectx.getText() + ");\n"; 
+                    saida.append(str);
+                }
+            }
+        }
+
+        return null;
+    }
+    
+    @Override
     public Void visitCmdSe(JanderParser.CmdSeContext ctx) {
 
         String str;
         String textoExpressao;
         
-        // Susbtitui os operadores nas expressões da condição.
+        // Susbtitui os operadores na condição.
         textoExpressao = ctx.expressao().getText().replace("e", "&&");
         textoExpressao = textoExpressao.replace("=", "==");
 
@@ -732,34 +808,6 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
         return null;
     }
     
-    @Override
-    public Void visitCmdLeia(JanderParser.CmdLeiaContext ctx) {
-
-        TabelaDeSimbolos escopoAtual = tabela;
-        String nomeVar;
-        TipoJander tipoAuxTipoJander;
-        String codigoTipo;
-        String str;
-
-        // Executa as verificações dos parâmetros atuais.
-        for (JanderParser.IdentificadorContext ictx : ctx.identificador()) {
-            nomeVar = ictx.getText();
-            tipoAuxTipoJander = escopoAtual.verificar(nomeVar);
-            codigoTipo = verificaParamTipoJander(tipoAuxTipoJander);
-
-            // Caso seja um literal, imprime a leitura adequada em C.
-            if (tipoAuxTipoJander == TipoJander.LITERAL) {
-                str = "gets(" + nomeVar + ");\n";
-                saida.append(str);
-            // Impressão dos outros tipos básicos.
-            } else {
-                str = "scanf(\"%" + codigoTipo + "\",&" + nomeVar + ");\n";
-                saida.append(str);
-            }
-        }
-
-        return null;
-    }
 
     @Override
     public Void visitCmdEnquanto(JanderParser.CmdEnquantoContext ctx) {
@@ -787,7 +835,7 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
         limiteEsq = ctx.exp_aritmetica(0).getText();
         limiteDir = ctx.exp_aritmetica(1).getText();
 
-        // Impressão do comando for com os limites obtidos anteriormente.
+        // Comando for com os limites 
         str = "for(" + nomeVariavel + " = " + limiteEsq + "; " + nomeVariavel + " <= " + limiteDir + "; " + nomeVariavel + "++){\n";
         saida.append(str);
 
@@ -814,77 +862,7 @@ public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
 
         return null;
     } 
-    
-
-    
-    @Override
-public Void visitCmdEscreva(JanderParser.CmdEscrevaContext ctx) {
-    TabelaDeSimbolos escopoAtual = tabela;
-    
-    for (JanderParser.ExpressaoContext ectx : ctx.expressao()) {
-        String str;
-
-        saida.append("printf(\"");
-
-        // Caso seja uma string literal
-        if (ectx.getText().contains("\"")) {
-            str = ectx.getText().replace("\"", "") + "\");\n";
-            saida.append(str);
-        } 
-        // Caso seja acesso a campo de registro
-        else if (ectx.getText().contains(".")) {
-            String[] partes = ectx.getText().split("\\.");
-            String nomeRegistro = partes[0];
-            String nomeCampo = partes[1];
-            
-            // Verifica se o registro existe na tabela de símbolos
-            if (tabela.existe(nomeRegistro)) {
-                // Obtém os campos do registro
-                Map<String, TipoJander> camposRegistro = tabela.obterCamposDoTipoRegistro(nomeRegistro);
-
-                if (camposRegistro != null && camposRegistro.containsKey(nomeCampo)) {
-                    TipoJander tipoCampo = camposRegistro.get(nomeCampo);
-                    String codTipoExp = verificaParamTipoJander(tipoCampo);
-                    
-                    if (codTipoExp != null) {
-                        str = "%" + codTipoExp + "\", " + ectx.getText() + ");\n";
-                        saida.append(str);
-                    } else {
-                        // Tipo não reconhecido - tratar erro
-                        str = "%d\", " + ectx.getText() + ");\n"; // default para int
-                        saida.append(str);
-                    }
-                } else {
-                    // Campo não encontrado - tratar erro
-                    str = "%d\", " + ectx.getText() + ");\n"; // default para int
-                    saida.append(str);
-                }
-            } else {
-                str = "%d\", " + ectx.getText() + ");\n";
-                saida.append(str);
-            }
-        } 
-        // Caso seja uma expressão normal
-        else {
-            TipoJander tipoAuxTipoJanderExp = verificarTipo(escopoAtual, ectx);
-            String codTipoExp = verificaParamTipoJander(tipoAuxTipoJanderExp);
-            
-            if (codTipoExp != null) {
-                if (tipoAuxTipoJanderExp == TipoJander.LITERAL) {
-                    str = "%s" + "\", " + ectx.getText() + ");\n";
-                } else {
-                    str = "%" + codTipoExp + "\", " + ectx.getText() + ");\n";
-                }
-                saida.append(str);
-            } else {
-                str = "%d\", " + ectx.getText() + ");\n"; 
-                saida.append(str);
-            }
-        }
-    }
-
-    return null;
-}
+   
     
     @Override
     public Void visitCmdCaso(JanderParser.CmdCasoContext ctx) {
@@ -895,16 +873,16 @@ public Void visitCmdEscreva(JanderParser.CmdEscrevaContext ctx) {
         str = "switch (" + ctx.exp_aritmetica().getText() + "){\n";
         saida.append(str);
 
-        // Executa os blocos do comando Caso.
+        // Comando Caso.
         for (JanderParser.Item_selecaoContext sctx : ctx.selecao().item_selecao()) {
 
             String strOriginal = sctx.constantes().numero_intervalo(0).getText();
             
-            // Obtém os limites esquero e direito do caso atual.
+            // Limites esquerdo e direito do caso atual.
             if (strOriginal.contains(".")) {
                 limiteEsq = getLimitesCaso(strOriginal, true);
                 limiteDir = getLimitesCaso(strOriginal, false);
-            // Caso seja um valor único, ambos os limites podem receber o mesmo valor.
+            // Caso seja um valor único, ambos os limites recebem o mesmo valor.
             } else {
                 limiteEsq = getLimitesCaso(strOriginal, true);
                 limiteDir = getLimitesCaso(strOriginal, true);
