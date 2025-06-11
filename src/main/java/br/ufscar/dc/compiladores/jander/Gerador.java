@@ -261,6 +261,7 @@ public class Gerador extends JanderBaseVisitor<Void> {
         
         saida.append("#include <stdio.h>\n");
         saida.append("#include <stdlib.h>\n");
+        saida.append("#include <string.h>\n");
         saida.append("\n");
          
         visitDeclaracoes(ctx.declaracoes());
@@ -276,37 +277,50 @@ public class Gerador extends JanderBaseVisitor<Void> {
     }
     
     @Override
-    public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
+public Void visitDeclaracao_local(JanderParser.Declaracao_localContext ctx) {
+    String str;
+
+    if (ctx.valor_constante() != null) {
+        str = "#define " + ctx.IDENT().getText() + " " + ctx.valor_constante().getText() + "\n";
+        saida.append(str);
+    } 
+    else if (ctx.tipo() != null) {
+        // 1. Primeiro adiciona o tipo de registro no escopo GLOBAL
+        String nomeRegistro = ctx.IDENT().getText();
+        tabela.adicionar(nomeRegistro, TabelaDeSimbolos.TipoJander.REGISTRO_TIPO);
         
-        String str;
-
-        // Verifica se é uma declaração de constante.
-        if (ctx.valor_constante() != null) {
-            str = "#define " + ctx.IDENT().getText() + " " + ctx.valor_constante().getText() + "\n";
-            saida.append(str);
-        // Verifica se é a criação de um registro.  
-        } else if (ctx.tipo() != null) {
-            // Cria um novo escopo
-            tabela.novoEscopo(false);
-
-            saida.append("typedef struct {\n");
-            super.visitRegistro(ctx.tipo().registro());
-
-            // Sai do escopo após processar o registro
-            tabela.abandonarEscopo();
-
-            // Adiciona no escopo atual (não precisa armazenar escopo separado)
-            tabela.adicionar(ctx.IDENT().getText(), TabelaDeSimbolos.TipoJander.REGISTRO);
-            
-            str = "} " + ctx.IDENT().getText() + ";\n";
-            saida.append(str);
-        // Caso em que é uma declaração de um tipo básico.
-        } else if (ctx.variavel() != null)
-            visitVariavel(ctx.variavel());
+        // 2. Gera a struct
+        saida.append("typedef struct {\n");
         
-        return null;
+        // 3. Processa os campos (sem criar novo escopo)
+        if (ctx.tipo().registro() != null) {
+            for (JanderParser.VariavelContext varCtx : ctx.tipo().registro().variavel()) {
+                TabelaDeSimbolos.TipoJander tipoCampo = JanderSemanticoUtils.verificarTipo(tabela, varCtx.tipo());
+                
+                for (JanderParser.IdentificadorContext idCtx : varCtx.identificador()) {
+                    String nomeCampo = idCtx.IDENT(0).getText();
+                    
+                    // Gera o código do campo
+                    saida.append("    " + converteTipo(tipoCampo) + " " + nomeCampo);
+                    if (tipoCampo == TipoJander.LITERAL) {
+                        saida.append("[80]");
+                    }
+                    saida.append(";\n");
+                    
+                    // Adiciona o campo ao tipo de registro
+                    tabela.adicionarCampoRegistroATipo(nomeRegistro, nomeCampo, tipoCampo);
+                }
+            }
+        }
+        
+        saida.append("} ").append(nomeRegistro).append(";\n");
+    }
+    else if (ctx.variavel() != null) {
+        visitVariavel(ctx.variavel());
     }
     
+    return null;
+}
     @Override
     public Void visitVariavel(JanderParser.VariavelContext ctx) {
 
@@ -325,11 +339,19 @@ public class Gerador extends JanderBaseVisitor<Void> {
                 tipoVariavel = tipoVariavel.substring(1);
             }
 
-            // Verifica se é um tipo registro declarado anteriormente
-            if (tabela.obterCamposDoTipoRegistro(tipoVariavel) != null) {
-                tipoEstendido = true;
-                tipoAuxTipoJander = TipoJander.REGISTRO_TIPO;
+            if (tabela.existe(tipoVariavel) && tabela.verificar(tipoVariavel) == TipoJander.REGISTRO_TIPO) {
+                // É um tipo registro definido anteriormente
+                for (JanderParser.IdentificadorContext ictx : ctx.identificador()) {
+                    nomeVar = ictx.getText();
+                    tabela.adicionar(nomeVar, TipoJander.REGISTRO_TIPO);
+                    
+                    // Gera a declaração usando o tipo definido
+                    str = tipoVariavel + " " + nomeVar + ";\n";
+                    saida.append(str);
+                }
+                return null;
             } else {
+                // É um tipo básico
                 tipoAuxTipoJander = converteTipoJander(tipoVariavel);
                 tipoVariavel = converteTipo(tipoAuxTipoJander);
             }
@@ -354,14 +376,25 @@ public class Gerador extends JanderBaseVisitor<Void> {
             // Cria um novo escopo temporário para o corpo do registro
             tabela.novoEscopo(false);
 
-            saida.append("typedef struct {\n");
+            saida.append(" struct {\n");
 
             super.visitRegistro(ctx.tipo().registro());
 
             tabela.abandonarEscopo();
 
             String nomeRegistro = ctx.identificador(0).getText();
-            tabela.adicionar(nomeRegistro, TipoJander.REGISTRO_TIPO);
+            tabela.adicionar(nomeRegistro, TabelaDeSimbolos.TipoJander.REGISTRO_TIPO);
+
+                if (ctx.tipo().registro() != null) {
+                    for (JanderParser.VariavelContext varCtx : ctx.tipo().registro().variavel()) {
+                        TabelaDeSimbolos.TipoJander tipoCampo = JanderSemanticoUtils.verificarTipo(tabela, varCtx.tipo());
+
+                        for (JanderParser.IdentificadorContext idCtx : varCtx.identificador()) {
+                            String nomeCampo = idCtx.IDENT(0).getText();
+                            tabela.adicionarCampoRegistroATipo(nomeRegistro, nomeCampo, tipoCampo);
+                        }
+                    }
+                }
 
             saida.append("} ").append(nomeRegistro).append(";\n");
         }
@@ -782,6 +815,8 @@ public class Gerador extends JanderBaseVisitor<Void> {
         return null;
     } 
     
+
+    
     @Override
 public Void visitCmdEscreva(JanderParser.CmdEscrevaContext ctx) {
     TabelaDeSimbolos escopoAtual = tabela;
@@ -806,7 +841,7 @@ public Void visitCmdEscreva(JanderParser.CmdEscrevaContext ctx) {
             if (tabela.existe(nomeRegistro)) {
                 // Obtém os campos do registro
                 Map<String, TipoJander> camposRegistro = tabela.obterCamposDoTipoRegistro(nomeRegistro);
-                
+
                 if (camposRegistro != null && camposRegistro.containsKey(nomeCampo)) {
                     TipoJander tipoCampo = camposRegistro.get(nomeCampo);
                     String codTipoExp = verificaParamTipoJander(tipoCampo);
@@ -825,8 +860,7 @@ public Void visitCmdEscreva(JanderParser.CmdEscrevaContext ctx) {
                     saida.append(str);
                 }
             } else {
-                // Registro não encontrado - tratar erro
-                str = "%d\", " + ectx.getText() + ");\n"; // default para int
+                str = "%d\", " + ectx.getText() + ");\n";
                 saida.append(str);
             }
         } 
@@ -843,8 +877,7 @@ public Void visitCmdEscreva(JanderParser.CmdEscrevaContext ctx) {
                 }
                 saida.append(str);
             } else {
-                // Tipo não reconhecido - tratar erro
-                str = "%d\", " + ectx.getText() + ");\n"; // default para int
+                str = "%d\", " + ectx.getText() + ");\n"; 
                 saida.append(str);
             }
         }
