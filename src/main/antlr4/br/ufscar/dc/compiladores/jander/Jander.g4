@@ -54,7 +54,7 @@ PONTEIRO : '^';
 
 // Literais e identificadores
 CADEIA : '"' ( ESC_SEQ | ~('\n'|'\''|'\\'|'"') )* '"';
-fragment ESC_SEQ : '\\\'';
+fragment ESC_SEQ : '\\' [btnfr"\\];
 NUM_INT : [0-9]+;
 NUM_REAL : [0-9]+ ('.' [0-9]+)?;
 IDENT : [a-zA-Z_][a-zA-Z_0-9]*;

@@ -1,9 +1,11 @@
 package br.ufscar.dc.compiladores.jander;
 
-import static br.ufscar.dc.compiladores.jander.JanderSemanticoUtils.verificarTipo;
-import br.ufscar.dc.compiladores.jander.TabelaDeSimbolos.TipoJander;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
+import static br.ufscar.dc.compiladores.jander.JanderSemanticoUtils.verificarTipo;
+import br.ufscar.dc.compiladores.jander.TabelaDeSimbolos.TipoJander;
 
 public class Gerador extends JanderBaseVisitor<Void> {
 
@@ -115,7 +117,6 @@ public class Gerador extends JanderBaseVisitor<Void> {
     public String verificaParamTipoJander(TipoJander tipoAuxTipoJander) {
 
         String tipoRetorno = null;
-
         if (tipoAuxTipoJander != null) {
             switch (tipoAuxTipoJander) {
                 case INTEIRO:
@@ -379,7 +380,7 @@ public class Gerador extends JanderBaseVisitor<Void> {
         String tipo, nomeVariaveis;
 
         // Verifica e imprime o tipo da função em C.
-        if (ctx.tipo_estendido() != null)
+        if (ctx.FUNCAO() != null)
             saida.append(verificaTipoC(ctx.tipo_estendido().getText()));
         else
             saida.append("void");
@@ -759,7 +760,7 @@ public class Gerador extends JanderBaseVisitor<Void> {
 
         // Executa os comandos do for.
         for (JanderParser.CmdContext cctx : ctx.cmd())
-            visitCmd(cctx);
+            super.visitCmd(cctx);
             
         saida.append("}\n");
 
@@ -782,41 +783,75 @@ public class Gerador extends JanderBaseVisitor<Void> {
     } 
     
     @Override
-    public Void visitCmdEscreva(JanderParser.CmdEscrevaContext ctx) {
+public Void visitCmdEscreva(JanderParser.CmdEscrevaContext ctx) {
+    TabelaDeSimbolos escopoAtual = tabela;
+    
+    for (JanderParser.ExpressaoContext ectx : ctx.expressao()) {
+        String str;
 
-        TipoJander tipoAuxTipoJanderExp;
-        String codTipoExp;
-        
-        TabelaDeSimbolos escopoAtual = tabela;
-        
-        for (JanderParser.ExpressaoContext ectx : ctx.expressao()) {
+        saida.append("printf(\"");
 
-            String str;
-
-            saida.append("printf(\"");
-
-            // Remoção das aspas de uma cadeia passada explicitamente.
-            if (ectx.getText().contains("\"")) {
-                str = ectx.getText().replace("\"", "") + "\");\n";
-                saida.append(str);
-            } else {
-                tipoAuxTipoJanderExp = verificarTipo(escopoAtual, ectx);
-
-                // Caso seja uma cadeia, imprime com o parâmetro adequado.
-                if (tipoAuxTipoJanderExp == TipoJander.LITERAL) {
-                    str = "%s" + "\", " + ectx.getText() + ");\n";
-                    saida.append(str);
-                // Caso seja um outro tipo básico, verifica qual é o parâmetro adequado.
+        // Caso seja uma string literal
+        if (ectx.getText().contains("\"")) {
+            str = ectx.getText().replace("\"", "") + "\");\n";
+            saida.append(str);
+        } 
+        // Caso seja acesso a campo de registro
+        else if (ectx.getText().contains(".")) {
+            String[] partes = ectx.getText().split("\\.");
+            String nomeRegistro = partes[0];
+            String nomeCampo = partes[1];
+            
+            // Verifica se o registro existe na tabela de símbolos
+            if (tabela.existe(nomeRegistro)) {
+                // Obtém os campos do registro
+                Map<String, TipoJander> camposRegistro = tabela.obterCamposDoTipoRegistro(nomeRegistro);
+                
+                if (camposRegistro != null && camposRegistro.containsKey(nomeCampo)) {
+                    TipoJander tipoCampo = camposRegistro.get(nomeCampo);
+                    String codTipoExp = verificaParamTipoJander(tipoCampo);
+                    
+                    if (codTipoExp != null) {
+                        str = "%" + codTipoExp + "\", " + ectx.getText() + ");\n";
+                        saida.append(str);
+                    } else {
+                        // Tipo não reconhecido - tratar erro
+                        str = "%d\", " + ectx.getText() + ");\n"; // default para int
+                        saida.append(str);
+                    }
                 } else {
-                    codTipoExp = verificaParamTipoJander(tipoAuxTipoJanderExp);
-                    str = "%" + codTipoExp + "\", " + ectx.getText() + ");\n";
+                    // Campo não encontrado - tratar erro
+                    str = "%d\", " + ectx.getText() + ");\n"; // default para int
                     saida.append(str);
                 }
+            } else {
+                // Registro não encontrado - tratar erro
+                str = "%d\", " + ectx.getText() + ");\n"; // default para int
+                saida.append(str);
+            }
+        } 
+        // Caso seja uma expressão normal
+        else {
+            TipoJander tipoAuxTipoJanderExp = verificarTipo(escopoAtual, ectx);
+            String codTipoExp = verificaParamTipoJander(tipoAuxTipoJanderExp);
+            
+            if (codTipoExp != null) {
+                if (tipoAuxTipoJanderExp == TipoJander.LITERAL) {
+                    str = "%s" + "\", " + ectx.getText() + ");\n";
+                } else {
+                    str = "%" + codTipoExp + "\", " + ectx.getText() + ");\n";
+                }
+                saida.append(str);
+            } else {
+                // Tipo não reconhecido - tratar erro
+                str = "%d\", " + ectx.getText() + ");\n"; // default para int
+                saida.append(str);
             }
         }
-
-        return null;
     }
+
+    return null;
+}
     
     @Override
     public Void visitCmdCaso(JanderParser.CmdCasoContext ctx) {
